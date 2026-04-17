@@ -40,7 +40,7 @@
     % 如需要换行，则用 “\\” 符号分割。
     classification = TQ028.1,
     UDC = 540,
-    title = 形状记忆聚氨酯的合成及其在纺织中的应用,
+    title = 基于反事实检测与约束重写的黑盒大语言模型偏见修正方法研究,
     % 如需覆盖竖排标题，请配置以下选项。
     % 下面的例子展示了如何在竖排标题中使用垂直或者旋转的英文。
     % verticalTitle = {形状记忆聚氨酯{L } {T } {X }的合成 \rotatebox[origin=c]{-90}{Feng Kaiyu} 及其在纺织中的应用},
@@ -159,7 +159,7 @@
 \usepackage{tabularx}
 \usepackage{graphicx}
 \usepackage{algorithm}
-\usepackage{algorithmic}
+\usepackage{algpseudocode}
 \usepackage{xcolor}
 \usepackage{soul}
 
@@ -202,7 +202,10 @@
 
 % 请根据论文内容，按照顺序添加章节。
 \input{./chapters/chapter1.tex}
-% \input{./chapters/chapter2.tex}
+\input{./chapters/chapter2.tex}
+\input{./chapters/chapter3.tex}
+\input{./chapters/chapter4.tex}
+\input{./chapters/chapter5.tex}
 
 \backmatter
 
@@ -212,7 +215,7 @@
 % 后置部分
 
 \input{./misc/2_reference.tex} % 参考文献
-\input{./misc/3_appendices.tex} % 附录
+% \input{./misc/3_appendices.tex} % 附录
 \input{./misc/4_pub.tex} % 成果清单
 \input{./misc/5_resume.tex} % 作者简介（仅博士生可能需要此项）
 

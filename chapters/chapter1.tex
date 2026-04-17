@@ -1,16 +1,72 @@
-%%
-% BIThesis 研究生学位论文模板 The BIThesis Template for Graduate Thesis
-% This file has no copyright assigned and is placed in the Public Domain.
-%%
-
 \chapter{绪论}
-
 
 \label{chap:intro}
 \section{研究背景和意义}
 
+近年来，大语言模型（Large Language Models, LLMs）在自然语言理解与生成领域取得了突破性进展。凭借海量语料预训练和大规模参数建模能力，LLM 已经在问答、对话生成、文本摘要、信息抽取、逻辑推理等多类任务中表现出优异性能，并逐步成为新一代通用人工智能系统的重要基础设施\cite{DBLP:conf/nips/BrownMRSKDNSSAA20,DBLP:journals/corr/abs-2108-07258,DBLP:conf/nips/KojimaGRMI22}。有研究指出，LLM 的兴起改变了传统面向单任务训练专用模型的开发范式，使研究者和开发者能够基于统一的基础模型完成多种下游任务，从而显著提升了语言技术的适应性与通用性\cite{DBLP:journals/coling/GallegosRBTKDYZA24}。
+
+然而，LLM 在展现强大能力的同时，也暴露出明显的社会偏见问题。由于模型通常依赖大规模互联网语料进行训练，而这些语料本身包含历史与现实社会中的偏见、刻板印象、歧视性表达等语言文字，模型在学习语言模式的过程中也会一定程度继承和保留这些偏见，甚至放大这些有害倾向\cite{DBLP:conf/fat/BenderGMS21,DBLP:conf/emnlp/DodgeSMAIGM021,DBLP:conf/acl/ShengCNP20}。LLM 的偏见并不只表现为显式冒犯或仇恨性语言回复，还包括由于刻板印象而造成面向不同群体的不一致输出等多种形式，这些问题会对处于弱势或边缘地位的社会群体造成更为明显的负面影响。
+
+随着 LLM 被广泛应用到招聘辅助、教育咨询、医疗问答、内容审核、智能推荐等与社会公平密切相关的场景中，其偏见问题已经不仅是模型性能缺陷，更是影响系统可信性、用户体验与社会公正的重要因素。这意味着，LLM 偏见问题不仅涉及技术层面的鲁棒性与可控性，也直接关系到人工智能系统的伦理安全与可持续部署\cite{DBLP:journals/firstmonday/Ferrara23a}。
+
+现有研究围绕大语言模型偏见问题已形成一定的技术基础，相关工作主要集中在偏见识别评测与偏见缓解校正两个方面。偏见识别评测方法借助评测指标、测试数据集以及分类器或裁判模型，对不同敏感属性条件下的模型输出差异进行分析。偏见校正方法通过预处理、训练中、推理中和后处理等手段削弱模型生成内容中的不公平倾向。现有方法虽然能够一定程度上改善公平性，但普遍存在修改粒度较粗、语义漂移明显、信息保留不足和过度拒答等问题，难以兼顾公平性提升与回复质量。尤其是在当前主流大语言模型多以 API 或在线服务形式部署、模型参数与训练细节不可见的背景下，传统依赖再训练、参数更新或内部表示干预的方法适用性受到明显限制。
+
+基于此，围绕黑盒场景下的大语言模型偏见识别与输出级校正开展研究具有重要意义。在方法层面，可为黑盒条件下的实例级偏见定位、风险量化与最小编辑校正提供新思路。在应用层面，有助于提升大语言模型在真实场景中的公平性、可信度与可部署性，为构建更安全、更负责任的智能系统提供技术支撑。
+
+
 \section{国内外研究现状}
+
+\subsection{大语言模型公平性评测研究现状}
+
+大语言模型公平性评测的核心目标是系统测量模型在涉及不同敏感属性时的输出差异，从而判断模型是否存在不公平行为。随着词向量和预训练语言模型的发展，研究者首先从表示空间中的群体关联关系入手，对模型是否学习到性别、种族等社会属性的刻板关联进行分析。Caliskan等人\cite{DBLP:journals/corr/IslamBN16}提出 WEAT 方法，通过比较社会群体词与中性属性词在嵌入空间中的距离关系来刻画偏见。May等人\cite{DBLP:conf/naacl/MayWBBR19}提出 SEAT 方法，将该思想扩展到上下文化句子表示。Tan等人\cite{DBLP:conf/nips/TanC19}进一步将静态嵌入偏见测量迁移到上下文化表示。Guo等人\cite{DBLP:conf/aies/GuoC21}提出 CEAT 方法，以随机效应建模方式增强上下文化偏见评测的稳健性。Dolci等人\cite{DBLP:journals/dase/DolciAT23}则从词级表示贡献角度提出句子偏差评分，用以衡量句子内部不同词对性别偏向的贡献。此类研究为理解偏见在模型表征层面的存在形式提供了基础，但后续研究也表明，嵌入空间中的偏差与下游任务中的真实不公平并不总能稳定对应，且评测结果容易受模板构造、种子词选择和表示提取方式的影响\cite{DBLP:conf/acl/Goldfarb-Tarrant20,DBLP:conf/naacl/DelobelleTCB22,DBLP:conf/fat/CabelloJS23}。
+
+在表示层评测基础上，研究逐步发展出基于模型概率的公平性评测方法。这类方法通常通过替换敏感属性、构造成对句子或模板输入，比较模型在不同群体条件下对词或句子的概率分配差异。Kurita等人\cite{DBLP:journals/corr/abs-1906-07337}提出对数概率偏差评分，通过归一化 token 概率测量职业等中性属性与群体词之间的偏好差异。Webster 等人\cite{DBLP:journals/corr/abs-2010-06032}提出 DisCo，通过填空模板比较不同群体触发下模型预测结果的分布差异。Ahn等人\cite{DBLP:conf/emnlp/AhnO21}进一步将归一化对数概率扩展到非二元目标群体。Nangia等人\cite{DBLP:conf/emnlp/NangiaVBB20}提出 CrowS-Pairs 及其对应的伪似然打分方法，用于比较 stereotype 与 anti-stereotype 句子的相对偏好。Nadeem等人\cite{DBLP:conf/acl/NadeemBR20}构建 StereoSet，并提出 CAT 与 iCAT 指标，同时考察句内和句间的刻板印象偏好。Kaneko等人\cite{DBLP:conf/aaai/KanekoB22}提出 AUL 与 AULA，试图减少掩码选择带来的测量偏差。Barikeri等人\cite{DBLP:conf/acl/BarikeriLVG20} 则以困惑度差异为基础提出语言模型偏差。相较于表示层方法，概率类方法更直接反映模型在特定输入条件下的偏好，但其对模板和句对构造依赖较强，并且“应该用相等概率对待 stereotype 与 anti-stereotype的公平性假设本身存在争议”，因而在复杂场景中的解释力仍受限制\cite{DBLP:conf/acl/BlodgettLOSW20,DBLP:conf/pkdd/DelobelleB22,DBLP:conf/coling/KanekoBO22}。
+
+随着生成式大语言模型成为主流，公平性评测进一步转向基于生成文本的输出行为分析。与表示或概率方法不同，这类方法直接利用模型生成的自然语言文本进行偏见评估，特别适用于闭源或 API 形式提供服务的黑盒模型。Sheng等人\cite{DBLP:conf/emnlp/ShengCNP19}较早利用前缀提示与 regard 分类器分析模型对不同社会群体的社会评价倾向。Gehman等人\cite{DBLP:conf/emnlp/GehmanGSCS20}提出 RealToxicityPrompts，并以最大毒性、毒性概率和毒性比例等指标测量开放生成中的有害输出风险。Dhamala\cite{DBLP:conf/fat/DhamalaSKKPCG21}构建 BOLD 数据集，并结合心理语言学规范指标和性别极性指标分析不同群体相关提示下的生成差异。Nozza等人\cite{DBLP:conf/naacl/NozzaBH21}提出 HONEST，采用词典匹配方式检测生成结果中的伤害性补全内容。Liang等人\cite{liang2022helm}从词语共现分布和人口群体表征两个角度提出 Demographic Representation 与 Stereotypical Associations 指标。Sicilia等人\cite{DBLP:conf/acl/SiciliaA23}、Huang等人\cite{DBLP:conf/emnlp/HuangZJSWRMYK20} 以及 Smith等人\cite{DBLP:conf/emnlp/SmithHKPW22}又分别从分数一致性、反事实情感偏差和完整生成方差等角度扩展了对生成式偏见的分析。与此同时，Parrish等人\cite{DBLP:conf/acl/ParrishCNPPTHB22}提出 BBQ 数据集，将偏见评测引入问答任务。Li等人\cite{DBLP:journals/corr/abs-2010-02428}提出的 UnQover、Krieg等人\cite{DBLP:conf/chiir/KriegPMLSR23}提出的 Grep-BiasIR 也分别将评测扩展到问答与检索场景。总体来看，公平性评测研究已从表示层关联分析发展到概率比较，再到基于开放生成和真实任务输出的多维度评测框架，形成了较为系统的指标体系与测试数据集资源。但不同指标之间的一致性有限，部分 benchmark 存在可靠性、有效性和生态适用性问题，且很多方法仍难以准确刻画隐式偏见、复杂语义和真实交互场景中的不公平表现\cite{DBLP:conf/acl/SelvamDKKC23}。
+
+现有研究已充分证明大语言模型在多类敏感属性上存在输出差异，但大多数工作的重点在于发现问题和比较不同模型的表现，对于发现问题之后如何有效修正的关注相对不足。在公平性评测基础上，研究者进一步开始关注偏见检测方法。
+
+\subsection{偏见检测方法研究现状}
+
+早期偏见检测方法大多沿用评测框架中的模板化替换思路，通过显式敏感属性扰动来比较模型在不同社会群体条件下的响应差异。例如，Rudinger等人\cite{DBLP:conf/naacl/RudingerNLD18} 提出的 Winogender、Zhao等人\cite{DBLP:conf/naacl/ZhaoWYOC18} 提出的 WinoBias、Vanmassenhove等人\cite{DBLP:conf/emnlp/VanmassenhoveES21} 提出的 WinoBias+、Webster等人\cite{DBLP:journals/tacl/WebsterRAB18} 提出的 GAP、Levy等人\cite{DBLP:conf/emnlp/LevyLS21} 提出的 BUG 等，主要通过代词消解和职业和性别匹配任务检测模型是否依赖刻板印象。这类方法在检测显式性别偏见和职业刻板印象方面较为有效，但更多针对结构化模板和受限句式，难以应对开放自然语言输入中的隐式敏感属性与复杂语义。
+
+随后，基于反事实输入或句对比较的检测方法成为偏见识别的核心路线之一。Nangia等人\cite{DBLP:conf/emnlp/NangiaVBB20} 提出的 CrowS-Pairs、Barikeri等人\cite{DBLP:conf/acl/BarikeriLVG20} 提出的 RedditBias、Felkner等人\cite{DBLP:conf/acl/FelknerCJM23} 提出的 WinoQueer、Qian等人\cite{DBLP:conf/emnlp/QianRFSKW22} 提出的 PANDA、Dev等人\cite{DBLP:conf/aaai/DevLPS20} 提出的 Bias NLI 等，都通过对社会群体描述进行替换、保持句子语义主干基本一致的方式，检测模型在不同群体条件下的判断或生成差异。该类方法的重要优势在于，其能够较自然地体现“如果仅改变敏感属性，模型输出是否应保持一致”这一公平性要求，因此在理论上与个体公平、反事实公平等理念具有较强关联\cite{DBLP:conf/innovations/DworkHPRZ12,DBLP:journals/csur/MehrabiMSLG21}。然而，Blodgett等人\cite{DBLP:conf/acl/BlodgettLOSW20}指出，许多现有反事实 benchmark 中的 stereotype 与 anti-stereotype 句对在现实权力关系表达上并不总是充分合理，部分样本甚至无法明确刻画真实世界中的偏见结构。Selvam等人\cite{DBLP:conf/acl/SelvamDKKC23}进一步表明，一些表面微小的词汇改动就可能显著影响偏见得分。这说明反事实检测虽然具有较强的可解释性，但其有效性高度依赖于敏感属性替换是否自然、语义是否真正保持一致，以及差异是否确实由偏见而非任务语义变化导致。
+
+尽管上述方法在各自的应用场景中取得了一定效果，现有偏见检测研究仍存在几点不足：单次判断结果容易受到表面措辞和语义波动的影响，稳定性有限；对黑盒输出场景中反事实一致性信号的利用不足；偏见检测结果往往只输出一个二值标签，缺乏可直接用于后续校正的片段级信息。这些不足为本文的研究提供了改进空间。
+
+\subsection{偏见缓解与输出重写方法研究现状}
+
+偏见缓解技术与偏见评测和检测并行发展,现有缓解方法大致沿着预处理、训练中、推理中和后处理四个阶段逐步演进。预处理方法主要通过数据增强、数据过滤、重加权、数据生成和指令调控等方式，在模型训练之前减少训练语料中的群体偏差。\\
+部分研究使用反事实数据增强或替代策略平衡不同社会群体样本分布 \cite{DBLP:conf/birthday/LuMWAD20,DBLP:conf/emnlp/MaudslayGCT19,DBLP:conf/acl/GhanbarzadehHPM23}。\\
+部分研究通过样本筛选、毒性清洗和重加权降低训练数据中的偏见负担 \cite{DBLP:conf/aies/DixonLSTV18,DBLP:conf/ijcnlp/GarimellaMA22,DBLP:journals/corr/abs-2205-11374,DBLP:conf/acl/ThakurJVLM23,DBLP:journals/corr/abs-2108-07790,DBLP:conf/nips/SattigeriGPDV22}。\\
+部分研究从示范样本构建、社会规范数据和人类反馈数据生成角度改进训练语料 \cite{DBLP:conf/emnlp/DinanFWUKW20, DBLP:conf/nips/SolaimanD21, DBLP:conf/emnlp/0002YJLKKCS22, DBLP:conf/acl/UngXB22, DBLP:conf/acl/0012ZMWLCW0H23}。\\
+还有研究则通过指令设计、触发词或连续提示优化模型输入 \cite{DBLP:journals/corr/abs-2212-10678, DBLP:conf/eacl/VenkitGPHW23, DBLP:conf/aies/AbidF021, DBLP:conf/acl/FatemiXLX23}。\\
+此类方法可在一定程度上提升整体公平性，但往往依赖有效的社会群体词表、人工规则或再训练过程，且容易引入语法错误、事实偏移或新的分布失衡 \cite{DBLP:conf/eacl/KumarBNAT23, DBLP:conf/fat/DevinneyBB22}。
+
+训练阶段的偏见缓解则更加关注模型内部参数和目标函数的调整。为削弱社会群体与特定语义之间的耦合关系，研究者提出了多种正则化、对抗学习和强化学习方法。\\
+部分研究从表示子空间、正交约束、互信息最小化等角度消除敏感属性信息 \cite{DBLP:conf/naacl/BordiaB19, DBLP:conf/acl/RavfogelEGTG20, DBLP:conf/acl/LiangLZLSM20, DBLP:conf/icassp/WooNJL23}。
+Guo等人 \cite{DBLP:conf/acl/GuoYA22} 则通过对输出分布、logits 或偏见词能量加以正则约束，实现对生成行为的公平控制。Gaci等人 \cite{DBLP:conf/emnlp/GaciBCB22} 进一步将去偏目标引入注意力分布调整。Zheng等人 \cite{DBLP:conf/acl/ZhengK0H23} 利用对比学习优化偏见对照样本之间的表示一致性。Jin等人 \cite{DBLP:conf/naacl/JinBKDNR21} 则通过强化学习或价值对齐策略将公平性目标纳入奖励函数。此类方法在开放模型中具有较强控制力，但通常需要访问模型内部参数或训练过程，不适合当前大量以 API 形式提供能力的黑盒大语言模型。
+
+在无法直接训练或修改模型的场景下，研究进一步转向推理阶段和后处理阶段的去偏方法。推理阶段方法主要通过改写解码过程来约束模型输出，例如Xu等人\cite{DBLP:journals/corr/abs-2010-07079}利用敏感词或 n-gram 阻断减少有害生成。Shuster等人\cite{DBLP:journals/corr/abs-2208-03188}和Schramowski等人\cite{DBLP:journals/natmi/SchramowskiTARK22}通过分类器或价值判断器重新排序生成候选。Saunders等人\cite{DBLP:conf/acl/SaundersSB22}和Meade等人\cite{DBLP:conf/emnlp/MeadeGHGJRLH23}利用约束搜索、逻辑约束或安全示例引导生成更公平的输出；Krause等人\cite{DBLP:conf/emnlp/KrauseGMKJSR21}和Liu等人\cite{DBLP:conf/acl/LiuKW23}则通过专家—反专家模型、自我去偏或偏置项重分配修改 token 概率分布。Zayed等人\cite{DBLP:journals/corr/abs-2305-13088} 和 Hauzenberger等人\cite{DBLP:conf/acl/HauzenbergerMKS23} 从注意力重分布和模块化去偏网络角度提供无需完整再训练的中间方案。这些方法比训练阶段技术更灵活，但仍常要求访问 logits、注意力权重或中间表示，且过强的解码约束可能影响输出多样性和可用性，甚至压制少数群体语言表达。
+
+真正最贴近黑盒大语言模型应用现实的，是后处理阶段的输出重写方法，这类方法直接修改模型生成文本，而不依赖访问内部参数，是黑盒场景下重要的偏见缓解路径。Pryzant等人\cite{DBLP:conf/aaai/PryzantMDKJY20} 较早构建平行语料，将带有主观偏差的句子重写为更中性的表达。Ma等人\cite{DBLP:conf/emnlp/MaSRC20}尝试从权力关系和能动性角度对句子进行神经改写。He等人\cite{DBLP:conf/emnlp/HeMM21}首先识别受保护属性词，再通过神经重写模型生成去偏文本。Dhingra等人\cite{DBLP:journals/corr/abs-2307-00101} 对敏感属性相关刻板表达进行解释和替换，并通过风格迁移保持原句语义。Amrhein等人\cite{DBLP:conf/acl/AmrheinSSL23}将偏见修正建模为机器翻译式重写任务，在平行的偏见和去偏文本上训练生成模型。Majumder等人\cite{DBLP:conf/emnlp/MajumderHM23}提出 InterFair，在用户可控条件下调整重写强度。此类方法表明，输出级重写可以在不干预底层模型的前提下有效削弱偏见，是黑盒模型公平校正的可行方向。
+
+\subsection{现有研究存在的问题}
+
+综上所述，现有研究已经在偏见评测、检测与缓解方面形成了较为完整的技术方法，但与黑盒大语言模型真实应用需求相比，现有研究在输出公平性治理方面存在以下四点主要问题。
+
+1. 黑盒条件下偏见识别缺少稳定、可验证的技术路径。现有方法要么依赖单次大模型判断，要么依赖表面规则匹配，两者都难以同时兼顾隐式偏见的识别能力和对误判的有效控制。在黑盒条件下，缺少借助输入输出行为差异来稳定验证偏见的机制。
+
+2. 偏见检测与偏见校正之间缺少连贯衔接。大多数工作止步于评测与检测阶段，检测结果往往只是一个标签，难以直接作为后续重写模块的结构化输入。这使得识别与校正两个环节长期处于分离状态。
+
+3. 输出级偏见校正缺少细粒度、可控的最小编辑机制。整体重写虽然能在一定程度上消除偏见，但容易引起信息丢失、语义漂移和回复有用性下降等问题。现有方法对如何确定需要修改的具体片段、以及如何在最小改动范围内完成校正，尚缺乏系统性设计。
+
+4. 缺少同时覆盖公平性、文本质量与推理代价的综合评价框架。不同方法在评价维度上差异较大，导致研究之间难以进行系统比较，也难以全面评估方法在实际部署场景中的综合表现。
+
+以上四点问题构成了本文研究的直接动因，也对应了本文研究内容的四个核心任务。
+
 
 \section{本文研究内容}
 
 \section{本文组织结构}
+

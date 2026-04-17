@@ -1,0 +1,1051 @@
+ Fairness in Large Language Models: A Taxonomic Survey
+
+                                                                                                                 ⇤
+                    Zhibo Chu                            Zichong Wang                        Wenbin Zhang
+          Florida International University       Florida International University      Florida International University
+                  Miami, FL, USA                         Miami, FL, USA                        Miami, FL, USA
+           zb.chu2001@gmail.com                         ziwang@fiu.edu                  wenbin.zhang@fiu.edu
+
+
+ABSTRACT                                                              Kelly (e.g., a common female name) and Joseph (e.g., a
+                                                                      common male name), ChatGPT, a prominent instance of
+Large Language Models (LLMs) have demonstrated remark-
+                                                                      LLMs, produced paragraphs describing Kelly and Joseph
+able success across various domains. However, despite their
+                                                                      with random traits. Notably, Kelly was portrayed as warm
+promising performance in numerous real-world applications,
+                                                                      and amiable (e.g., a well-regarded member), whereas Joseph
+most of these algorithms lack fairness considerations. Con-
+                                                                      was depicted as possessing greater leadership and initiative
+sequently, they may lead to discriminatory outcomes against
+                                                                      (e.g., a natural leader and role model). This observation
+certain communities, particularly marginalized populations,
+                                                                      indicates that LLMs tend to perpetuate gender stereotypes
+prompting extensive study in fair LLMs. On the other hand,
+                                                                      by associating higher levels of leadership with males.
+fairness in LLMs, in contrast to fairness in traditional ma-
+chine learning, entails exclusive backgrounds, taxonomies,            To this end, the research community has made many e↵orts
+and fulfillment techniques. To this end, this survey presents         to address bias and discrimination in LLMs. Nevertheless,
+a comprehensive overview of recent advances in the exist-             the notions of studied fairness vary across di↵erent works,
+ing literature concerning fair LLMs. Specifically, a brief            which can be confusing and impede further progress. More-
+introduction to LLMs is provided, followed by an analysis             over, di↵erent algorithms are developed to achieve various
+of factors contributing to bias in LLMs. Additionally, the            fairness notions. The lack of a clear framework mapping
+concept of fairness in LLMs is discussed categorically, sum-          these fairness notions to their corresponding methodologies
+marizing metrics for evaluating bias in LLMs and existing             complicates the design of algorithms for future fair LLMs.
+algorithms for promoting fairness. Furthermore, resources             This situation underscores the need for a systematic survey
+for evaluating bias in LLMs, including toolkits and datasets,         that consolidates recent advances and illuminates paths for
+are summarized. Finally, existing research challenges and             future research. In addition, existing surveys on fairness
+open questions are discussed.                                         predominantly focus on traditional ML fields such as graph
+                                                                      neural networks [32, 41], computer vision [134, 87], natural
+                                                                      language processing [9, 21], which leaves a noticeable gap in
+1. INTRODUCTION                                                       comprehensive reviews specifically dedicated to the fairness
+Large language models (LLMs) have demonstrated remark-                of LLMs. To this end, this survey aims to bridge this gap by
+able capabilities in addressing problems across diverse do-           o↵ering a comprehensive and up-to-date review of existing
+mains, ranging from chatbots [52] to medical diagnoses [147]          literature on fair LLMs. The main contributions of this
+and financial advisory [123]. Notably, their impact extends           work are: i) Introduction to LLMs: The introduction of
+beyond fields directly associated with language processing,           fundamental principles of the LLM, its training process, and
+such as translation [160] and text sentiment analysis [99].           the bias stemming from such training sets the groundwork
+LLMs also prove invaluable in broader applications includ-            for a more in-depth exploration of the fairness of LLMs. ii)
+ing legal aid [166], healthcare [126], and drug discovery [117].      Comprehensive Metrics and Algorithms Review: A com-
+This highlights their adaptability and potential to stream-           prehensive overview of three categories of metrics and four
+line language-related tasks, making them indispensable tools          categories of algorithms designed to promote fairness in
+across various industries and scenarios.                              LLMs is provided, summarizing specific methods within
+Despite their considerable achievements, LLMs may face                each classification. iii) Rich Public-Available Resources:
+fairness concerns stemming from biases inherited from the             The compilation of diverse resources, including toolkits and
+real world and even exacerbate them [172]. Consequently,              evaluation datasets, advances the research and development
+they could lead to discrimination against certain popula-             of fair LLMs. iv) Challenges and Future Directions:
+tions, especially in socially sensitive applications, across var-     The limitations of current research are presented, pressing
+ious dimensions such as race [5], age [43], gender [72], nation-      challenges are pointed out, and open research questions are
+ality [139], occupation [71], and religion [1]. For instance,         discussed for further advances.
+an investigation [141] revealed that when tasked with gen-            The remainder of this paper is organized as follows: Sec-
+erating a letter of recommendation for individuals named              tion 2 introduces the proposed taxonomy. Section 3 pro-
+                                                                      vides background information on LLMs to facilitate an un-
+⇤Corresponding author
+                                                                      derstanding of fairness in LLMs. Following that, Section 4
+                                                                      explores current definitions of fairness in ML and the adap-
+                                                                      tations necessary to address linguistic challenges in defin-
+
+
+
+
+34                                                      Volume 26, Issue 1                                    SIGKDD Explorations
+                                                                                                                                Data Augmentation
+                                                                                                          Pre-processing
+                                                                                                                                Prompt Tuning
+
+                                                                                                                             Loss Function Modification
+                     Group Fairness                                                                       In-training
+                                             ML Bias Quantification and                                                      Auxiliary Module
+                                             Linguistic Adaptations in LLMs
+                 Individual Fairness                                                                                              Model Editing
+                                                                                     Mitigating Bias      Intra-processing
+                                                                                                                                 Decoding Method Modification
+                                                                                     in LLMs
+               Word Embedding                                                                                                    Chain of Thought
+                                       Embedding-                                                         Post-processing
+                                       based Metrics                                                                             Rewriting
+            Sentence Embedding                                 Fairness in Large Language Models
+
+             Template Sentences
+                                       Probability-
+                                       based Metrics                                                                          Perspective API
+           Pseudo Log Likelihood                           Quantifying
+                                                           Bias in LLMs                                      Toolkits         AI Fairness 360
+               Classifier-based                                                                                               Aequitas
+                                       Generation-                                      Resources for
+                                       based Metrics                                    Evaluating Bias
+                                                                                                                               Probability-based
+             Distribution-based
+                                                                                                             Datasets
+                                                                                                                              Generation-based
+
+
+
+
+                                       Figure 1: An overview of the proposed fairness in LLMs taxonomy.
+
+
+ing bias within LLMs. Section 5 introduces quantification                                ity to comprehend and generate human language [115, 93].
+of bias in LLMs. Discussion on algorithms for achieving                                  The evolution of language models progresses from statisti-
+fairness in LLMs is presented in Section 6. Subsequently,                                cal language models to neural language models, pre-trained
+Section 7 summarizes existing datasets and related toolkits.                             language models, and the current state of LLMs [27]. Initial
+The exploration of current research challenges and future                                statistical language models, like N-gram models [67], esti-
+directions is conducted in Section 8. Finally, Section 9 con-                            mate word likelihood based on the preceding context. How-
+cludes this survey.                                                                      ever, N-gram models face challenges such as poor general-
+                                                                                         ization ability, lack of long-term dependence, and difficulty
+                                                                                         capturing complex linguistic phenomena [108]. These limi-
+2. AN OVERVIEW OF THE TAXONOMY                                                           tations constrained the capabilities of language models until
+As shown in Figure 1, we categorize recent studies on the                                the emergence of transformers [138], which largely addressed
+fairness of LLMs according to three distinct perspectives:                               these issues. Specifically, transformers became the backbone
+i) metrics for quantifying biases in LLMs, ii) algorithms                                of modern language models [144], attributable to their ef-
+for mitigating biases in LLMs, and iii) resources for eval-                              ficiency—an architecture free of recurrence that computes
+uating biases in LLMs. Regarding metrics for quantifying                                 individual tokens in parallel—and e↵ectiveness—attention
+biases in LLMs, they are further categorized based on the                                facilitates spatial interaction across tokens dynamically de-
+data format used by metrics: i) embedding-based metrics, ii)                             pendent on the input itself. The advent of transformers
+probability-based metrics, and iii) generation-based metrics.                            has significantly expanded the scale of LLMs. These models
+Concerning bias mitigation techniques, they are structured                               not only demonstrate formidable linguistic capabilities but
+according to the di↵erent stages within the LLMs workflow:                               also rapidly approach human-level proficiency in diverse do-
+i) pre-processing, ii) in-training, iii) intra-processing, and iv)                       mains such as mathematics, reasoning, medicine, law, and
+post-processing. In addition, we collect resources for eval-                             programming [17]. Nevertheless, LLMs frequently embed
+uating biases in LLMs and group them into Toolkits and                                   undesirable social stereotypes and biases, underscoring the
+Datasets. Specifically for Datasets, they are classified into                            emerging necessity to address such biases as a crucial un-
+two types based on the most appropriate metric type: i)                                  dertaking.
+probability-based and ii) generation-based.
+                                                                                         3.2       Training Process of LLMs
+3. BACKGROUND                                                                            Training LLMs require careful planning, execution, and
+                                                                                         monitoring. This section provides a brief explanation of the
+This section initially introduces some essential preliminaries                           key steps required to train LLMs.
+about LLMs and their training process, laying the ground-
+                                                                                         Data preparation and preprocessing. The foundation
+work for a clear understanding of the factors contributing to
+                                                                                         of big language modeling is predicated on the availability
+bias in LLMs that follow.
+                                                                                         of high-quality data. For LLMs, this entails the necessity
+3.1 Large Language Models                                                                of a vast corpus of textual data that is not only extensive
+                                                                                         but also rich in quality and diversity, which requires accu-
+Language models are computational models with the capac-                                 rately representing the domain and language style that the
+
+
+
+SIGKDD Explorations                                                       Volume 26, Issue 1                                                                    35
+model is aiming to grasp. Simultaneously, the datasets need         paired with the labeled output “Delhi,” enabling it to learn
+to be large enough to provide sufficient training data for          the relationship between input queries and expected output
+LLMs, and representative enough so that the models can              responses. This equips the model to accurately answer simi-
+adapt well to new and unseen texts [120]. Furthermore,              lar questions, like “What is the capital of France?” resulting
+the dataset needs to undergo a variety of processes, with           in the answer “Paris”. While this highlights the model’s ca-
+data cleansing being a critical step involving the review and       pabilities, there are scenarios where its performance may fal-
+validation of data to eliminate discrimination and harmful          ter, particularly when queried like “Whether men or women
+content. For example, popular public sources for finding            are better leaders?” where the model may generate biased
+datasets, such as Kaggle1 , Google Dataset Search2 , Hug-           content. This introduces concerns about bias in the model’s
+ging Face3 , Data.gov4 , and Wikipedia database5 , could all        responses. For this purpose, InstructGPT [104] designs an
+potentially harbor discriminatory content. This inclusion of        e↵ective tuning approach that enables LLMs to follow the
+biased information can adversely impact decision-making if          expected instructions, which utilizes the technique of rein-
+fairness considerations are disregarded [86]. Therefore, it is      forcement learning with human feedback (RLHF) [26, 104].
+imperative to systematically remove any discriminatory con-         RLHF is an ML technique that uses human feedback to op-
+tent from the dataset to e↵ectively reduce the risk of LLMs         timize LLMs to self-learn more efficiently. Reinforcement
+internalizing biased patterns.                                      learning techniques train the model to make decisions that
+Model selection and configuration. Most existing                    maximize rewards, making their outcomes more accurate.
+LLMs utilize transformer deep learning architectures, which         RLHF incorporates human feedback in the rewards function,
+have emerged as a preferred option for advanced natural lan-        so the LLMs can perform tasks more aligned with human
+guage processing (NLP) tasks, such as Metas’s LLaMa [136]           values such as helpfulness, honesty, and harmlessness. No-
+and DeepAI’s GPT-3 [16]. Several key elements of these              tably, ChatGPT is developed based on a similar technique
+models, such as the choice of the loss function, the num-           as InstructGPT and exhibits a strong ability to generate
+ber of layers in transformer blocks, the number of attention        high-quality, benign responses, including the ability to avoid
+heads, and various hyperparameters, need to be specified            engaging with o↵ensive queries.
+when configuring a transformer neural network. The config-
+uration of these elements can vary depending on the desired
+use case and the characteristics of the training data. It is        3.3    Factors Contributing to Bias in LLMs
+important to recognize that the model configuration directly        Language modeling bias, often defined as “bias that re-
+influences the training duration and the potential introduc-        sults in harm to various social groups” [56], presents itself
+tion of bias during this process. One common source of bias         in various forms, encompassing the association of specific
+amplification during the model training process is the se-          stereotypes with groups, the devaluation of certain groups,
+lection of loss objectives mentioned above [61]. Typically,         the underrepresentation of particular social groups, and the
+these objectives aim to enhance the accuracy of predictions.        unequal allocation of resources among groups [36]. Here,
+However, models may capitalize on chance correlations or            three primary sources contributing to bias in LLMs are in-
+statistical anomalies in the dataset to boost precision (e.g.,      troduced:
+all positive examples in the training data happened to come         i) Training data bias. The training data used to develop
+from male authors so that gender can be used as a discrim-          LLMs is not free from historical biases, which inevitably
+inative feature) [58, 112]. In essence, models may produce          influence the behavior of these models. For instance, if
+accurate results based on incorrect rationales, resulting in        the training data includes the statement “all programmers
+discrimination.                                                     are male and all nurses are female,” the model is likely to
+Instruction Tuning. Instruction tuning represents a nu-             learn and perpetuate these occupational and gender biases
+anced form of fine-tuning where a model is trained using            in its outputs, reflecting a narrow and biased view of soci-
+specific pairs of input-output instructions. This method al-        etal roles [15, 20]. Additionally, a significant disparity in
+lows the model to learn particular tasks directed by these          the training data could also lead to biased outcomes [124].
+instructions, significantly enhancing its capacity to inter-        For example, Buolamwini and Gebru [18] highlighted signif-
+pret and execute a variety of NLP tasks as per the guide-           icant disparities in datasets like IJB-A and Adience, where
+lines provided [28]. Despite its advantages, the risk of in-        predominantly light-skinned individuals make up 79.6% and
+troducing bias is a notable concern in instruction tuning.          86.2% of the data, respectively, thereby biasing analyses to-
+Specifically, biased language or stereotypes within instruc-        ward underrepresented dark-skinned groups [91].
+tions can influence the model to learn and perpetuate biases        ii) Embedding bias. Embeddings serve as a fundamen-
+in its responses. To mitigate bias in instruction tuning, it        tal component in LLMs, o↵ering a rich source of semantic
+is essential to carefully choose instruction pairs, implement       information by capturing the nuances of language. How-
+bias detection and mitigation methods, incorporate diverse          ever, these embeddings may unintentionally introduce bi-
+and representative training data, and evaluate the model’s          ases, as demonstrated by the clustering of certain profes-
+fairness using relevant metrics.                                    sions, such as nurses near words associated with feminin-
+Alignment with human. During training, the model is                 ity and doctors near words associated with masculinity.
+exposed to examples such as “What is the capital of India?”         This phenomenon inadvertently introduces semantic bias
+                                                                    into downstream models, impacting their performance and
+1                                                                   fairness [50, 9]. The presence of such biases underscores the
+  https://www.kaggle.com/
+2                                                                   importance of critically examining and mitigating bias in
+  https://datasetsearch.research.google.com/
+3                                                                   embeddings to ensure the equitable and unbiased function-
+  https://huggingface.co/datasets
+4
+  https://data.gov/                                                 ing of LLMs across various applications and domains.
+5
+  https://en.wikipedia.org/wiki/Database                            iii) Label bias. In instruction tuning scenarios, biases can
+
+
+
+36                                                    Volume 26, Issue 1                                     SIGKDD Explorations
+arise from the subjective judgments of human annotators               gender is more suited to the profession than the other.
+who provide labels or annotations for training data [121].
+This occurs when annotators inject their personal beliefs,            4.2    Individual fairness
+perspectives, or stereotypes into the labeling process, inad-
+                                                                      Individual fairness represents a nuanced approach focusing
+vertently introducing bias into the model. Another potential
+                                                                      on equitable treatment at the individual level, as opposed to
+source of bias is the RLHF approach discussed in Section 3,
+                                                                      the broader strokes of group fairness [44]. Specifically, this
+where human feedback is used to align LLMs with human
+                                                                      concept posits that similar individuals should receive simi-
+values. While this method aims to improve model behav-
+                                                                      lar outcomes, where similarity is defined based on relevant
+ior by incorporating human input, it inevitably introduces
+                                                                      characteristics for the task at hand. Essentially, individual
+subjective notions into the feedback provided by humans.
+                                                                      fairness seeks to ensure that the model’s decisions, recom-
+These subjective ideas can influence the model’s training
+                                                                      mendations, or other outputs do not unjustly favor or disad-
+and decision-making processes, potentially leading to biased
+                                                                      vantage any individual, especially when compared to others
+outcomes. Therefore, it is crucial to implement measures to
+                                                                      who are alike in significant aspects. However, individual
+detect and mitigate bias when performing instruction tun-
+                                                                      fairness shares a common challenge with group fairness: the
+ing, such as diversifying annotator perspectives, and evalu-
+                                                                      reliance on available labels to measure and ensure equitable
+ating model performance using fairness metrics.
+                                                                      treatment. This involves modeling predicted di↵erences to
+                                                                      assess fairness accurately, a task that becomes particularly
+4. ML BIAS QUANTIFICATION AND LIN-                                    complex when dealing with the rich and varied outputs of
+   GUISTIC ADAPTATIONS IN LLMs                                        LLMs. In the context of LLMs, ensuring individual fairness
+                                                                      involves careful consideration of how sensitive or potentially
+This section reviews the commonly used definitions of fair-
+                                                                      o↵ensive words are represented and associated. A fair LLM
+ness in machine learning and the necessary adaptations to
+                                                                      should ensure that such words are not improperly linked
+address linguistic challenges when defining bias in the con-
+                                                                      with personal identities or names in a manner that perpet-
+text of LLMs.
+                                                                      uates negative stereotypes or biases. To illustrate, a term
+4.1 Group Fairness                                                    like “whore,” which might carry negative connotations and
+                                                                      contribute to hostile stereotypes, should not be unjustly as-
+Existing fairness definitions [60, 44] at the group level aim         sociated with an individual’s name, such as “Mrs. Apple,” in
+to emphasize that algorithmic decisions neither favor nor             the model’s outputs. This example underscores the impor-
+harm certain subgroups defined by the sensitive attribute,            tance of individual fairness in preventing the reinforcement
+which often derives from legal standards or topics of social          of harmful stereotypes and ensuring that LLMs treat all in-
+sensitivity, such as gender, race, religion, age, sexuality, na-      dividuals with respect and neutrality, devoid of undue bias
+tionality, and health conditions. These attributes delineate          or negative association.
+a variety of demographic or social groups, with sensitive at-
+tributes categorized as either binary (e.g., male, female) or
+pluralistic (e.g., Jewish, Islamic, Christian). However, exist-       5.     QUANTIFYING BIAS IN LLMs
+ing fairness metrics, developed primarily for traditional ma-         This section presents criteria for quantifying the bias
+chine learning tasks (e.g., classification), rely on the avail-       of language models, categorized into three main groups:
+ability of clear class labels and corresponding numbers of            embeddings-based metrics, probability-based metrics, and
+members belonging to each demographic group for quan-                 generation-based metrics.
+tification. For example, when utilizing the German Credit
+Dataset [7] and considering the relationship between gender           5.1    Embedding-based Metrics
+and credit within the framework of statistical parity (where
+the probability of granting a benefit, such as credit card ap-        This line of e↵orts begins with Bolukbasi et al. [15] con-
+proval, is the same for di↵erent demographic groups) [140],           ducting a seminal study that revealed the racial and gen-
+machine learning algorithms like decision trees can directly          der biases inherent in Word2Vec [92] and Glove [110], two
+produce a binary credit score for each individual. This en-           widely-used embedding schemes. However, these two em-
+ables the evaluation of whether there is an equal probability         bedding schemes primarily provide static representations
+for male and female applicants to obtain a good predicted             for identical words, whereas contextual embeddings o↵er a
+credit score. However, this quantification presupposes the            more nuanced representation that adapts dynamically ac-
+applicability of class labels and relies on the number of mem-        cording to the context [89]. To this end, the following
+bers from di↵erent demographic groups belonging to each               two embedding-based fairness metrics specifically consider-
+class label, an assumption that does not hold for LLMs.               ing contextual embeddings are introduced:
+LLMs, which are often tasked with generative or interpre-             Word Embedding Association Test (WEAT) [20].
+tive functions rather than simple classification, necessitate         WEAT assesses bias in word embeddings by comparing two
+a di↵erent linguistic approach to such demographic group-             sets of target words with two sets of attribute words. The
+based disparities; Instead of direct label comparison, group          calculation of WEAT can be seen as analogies: M is to A
+fairness in LLMs involves ensuring that word embeddings,              as F is to B, where M and F represent the target words,
+vector representations of words or phrases, do not encode             and A and B represent the attribute words. WEAT then
+biased associations. For example, the embedding for “doc-             uses cosine similarity to analyze the likeness between each
+tor” should not be closer to male-associated words than to            target and attribute set, and aggregates the similarity scores
+female-associated ones. This would indicate that the LLM              for the respective sets to determine the final result between
+associates both genders equally with the profession, with-            the target set and the attribute set. For example, to ex-
+out embedding any societal biases that might suggest one              amine gender bias in weapons and arts, the following sets
+
+
+
+SIGKDD Explorations                                     Volume 26, Issue 1                                                       37
+can be considered: Target words: Interests M : {pistol, ma-           puting the association between the target gender male and
+chine, gun, . . . }, Interests F : {dance, prose, drama, . . . },     the attribute doctor, LPBS first feeds the masked sentence
+Attribute words: terms A: {male, boy, brother, . . . }, terms         “[MASK] is a doctor” into the model to obtain the proba-
+B: {female, girl, sister, . . . }. WEAT thus assesses biases in       bility of the sentence “he is a doctor”, denoted as Ptarmale .
+LLMs by comparing the similarities between categories like            Then, to correct for the influence of inconsistent prior proba-
+male and gun, and female and gun. Mathematically, the                 bilities of target attributes, LPBS feeds the masked sentence
+association of a word w with bias attribute sets A and B in           “[MASK] is a [MASK]” into the model to obtain the proba-
+WEAT is defined as:                                                   bility of the sentence “he is a [MASK]”, denoted as Pprimale .
+                                                                      This process is repeated with “he” replaced by “she” for the
+                     1 X                 1 X                          target gender female. Finally, the bias is assessed by com-
+      s(w, A, B) =         cos(w, a)         cos(w, b)       (1)      paring the normalized probability scores for two contrasting
+                     n a2A               n
+                                            b2B                       attribute words, and the specific formula is defined as:
+Subsequently, to quantify bias in the sets M and F , the
+e↵ect size is used as a normalized measure for the association                                       ptari         ptarj
+                                                                                    LPBS(S) = log            log                 (3)
+di↵erence between the target sets:                                                                   pprii         pprij
+
+                                                                      CrowS-Pairs Score. CrowS-Pairs score [97] di↵ers from
+                            mean m2M s(m, A, B)                       the above two methods that use fill-in-the-blank templates,
+     W EAT (M, F, A, B) =                                    (2)
+                          stddevw2M [F s(w, A, B)                     as it is based on pseudo-log-likelihood (PLL) [118] calculated
+                             mean f 2F s(f , A, B)                    on a set of counterfactual sentences. PLL approximates the
+                          stddevw2M [F s(w, A, B)                     probability of a token conditioned on the rest of the sentence
+                                                                      by masking one token at a time and predicting it using all
+where meanm2M s(m, A, B) represents the average of                    the other unmasked tokens. The equation for PLL can be
+s(m, A, B)for m in M , while stddevw2M [F s(w, A, B) de-              expressed as:
+notes the standard deviation across all word biases of m in                                       X
+M.                                                                                     PLL(S) =       log P (s|S\s ; ✓)          (4)
+Sentence Embedding Association Test (SEAT) [89].                                                 s2S
+Contrasting with WEAT, SEAT compares sets of sentences
+rather than sets of words by employing WEAT on the vec-               where S represents is a sentence and s denotes a word within
+tor representation of a sentence. Specifically, its objective         S. The CrowS-Pairs score requires pairs of sentences, one
+is to quantify the relationship between a sentence encoder            characterized by stereotyping and the other less so, utilizing
+and a specific term rather than its connection with the con-          PLL to assess the model’s inclination towards stereotypical
+text of that term, as seen in the training data. In order to          sentences.
+accomplish this, SEAT adopts musked sentence structures
+like “That is [BLANK]” or “[BLANK] is here”, where the                5.3    Generation-based Metrics
+empty slot [BLANK] is filled with social group and neutral            Generation-based metrics play a crucial role in addressing
+attribute words. In addition, employing fixed-sized embed-            closed-source LLMs, as obtaining probabilities and embed-
+ding vectors encapsulating the complete semantic informa-             dings of text generated by these models can be challenging.
+tion of the sentence as embeddings allows compatibility with          These metrics involve inputting biased or toxic prompts into
+Eq.(2).                                                               the model, aiming to elicit biased or toxic text output, and
+5.2 Probability-based Metrics                                         then measuring the level of bias present. Generated-based
+                                                                      metrics are categorized into two groups: classifier-based and
+Probability-based metrics formalize bias by analyzing the             distribution-based metrics.
+probabilities assigned by LLMs to various options, often pre-         Classifier-based Metrics. Classifier-based metrics utilize
+dicting words or sentences based on templates [11, 116] or            an auxiliary model to evaluate bias, toxicity, or sentiment
+evaluation sets [48]. These metrics are generally divided into        in the generated text. Bias in the generated text can be
+two categories: masked tokens, which assess token probabil-           detected when text created from similar prompts but fea-
+ities in fill-in-the-blank templates, and pseudo-log-likelihood       turing di↵erent social groups is classified di↵erently by an
+is utilized to assess the variance in probabilities between           auxiliary model. As an example, multilayer perceptrons,
+counterfactual pairs of sentences.                                    frequently employed as auxiliary models due to their robust
+Discovery of Correlations (DisCo) [156]. DisCo uti-                   modeling capabilities and versatile applications, are com-
+lizes a set of template sentences, each containing two empty          monly utilized for binary text classification [8, 68]. Subse-
+slots. For example, “[PERSON] often likes to [BLANK]”.                quently, binary bias is assessed by examining disparities in
+The [PERSON] slot is manually filled with gender-related              classification outcomes among various classes. For example,
+words from a vocabulary list, while the second slot [BLANK]           gender bias is quantified by analyzing the di↵erence in true
+is filled by the model’s top three highest-scoring predictions.       positive rates of gender in classification outcomes in [6].
+By comparing the model’s candidate fills generation-based             Distribution-based Metrics. Detecting bias in the gen-
+on the gender association in the [PERSON] slot, DisCo eval-           erated text can involve comparing the token distribution
+uates the presence and magnitude of bias in the model.                related to one social group with that of another or nearby
+Log Probability Bias Score (LPBS) [73].                    LPBS       social groups. One specific method is the Co-Occurrence
+adopts template sentences similar to DisCO. However, un-              Bias score [98], which assesses how often tokens co-occur
+like DisCO, LPBS corrects for the influence of inconsistent           with gendered words in a corpus of generated text. Math-
+prior probabilities of target attributes. Specifically, for com-      ematically, for any token w, and two sets of gender words,
+
+
+
+38                                                      Volume 26, Issue 1                                      SIGKDD Explorations
+e.g., f emale and male, the bias score of a specific word w            essentially embeddings, a series of numbers, that contain in-
+is defined as follows:                                                 formation extracted from the broader model. As a specific
+                                                                       example of a hard prompt, Mattern et al. [88] introduced an
+                                                                       approach focusing on analyzing the bias mitigation e↵ects
+                P (w | f emale)                d(w, g)/⌃i d (wi , g)
+bias(w) = log(                  ), P (w | g) =                         of prompts across various levels of abstraction. In their ex-
+                 P (w | male)                    d(g)/⌃i d (wi )       periments, they observed that the e↵ects of debiasing be-
+                                                             (5)       came more noticeable as prompts became less abstract, as
+where P (w | g) represents the probability of encountering             these prompts encouraged GPT-3 to utilize gender-neutral
+the word w in the context of gendered terms g, and d(w, g)             pronouns more frequently. In terms of soft prompt method,
+represents a contextual window. The set g consists of gen-             Fatemi et al. [47] focus on achieving gender equality by freez-
+dered words classified as either male or female. A positive            ing model parameters and utilizing gender-neutral datasets
+bias score suggests that a word is more commonly associated            to update biased word embeddings associated with occupa-
+with female words than with male words. In an infinite con-            tions, e↵ectively reducing bias in prompts. Overall, the dis-
+text, the words “doctor” and “nurse” would occur an equal              advantage of hard prompts is their lack of flexibility, while
+number of times with both female and male words, resulting             the drawback of soft prompts is the lack of interpretability.
+in bias scores of zero for these words.
+
+
+6. MITIGATING BIAS IN LLMs                                             6.2    In-training
+                                                                       Mitigation techniques implemented during training aim to
+This section discusses and categorizes existing algorithms
+                                                                       alter the training process to minimize bias. This includes
+for mitigating bias in LLMs into four categories based on
+                                                                       making modifications to the optimization process by adjust-
+the stage at which they intervene in the processing pipeline.
+                                                                       ing the loss function and incorporating auxiliary modules.
+6.1 Pre-processing                                                     These adjustments require the model to undergo retraining
+                                                                       in order to update its parameters.
+Pre-processing methods focus on adjusting the data pro-                i) Loss Function Modification. Loss function modifi-
+vided for the model, which includes both training data                 cation involves incorporating a fairness constraint into the
+and prompts, in order to eliminate underlying discrimina-              training process of downstream tasks to guide the model
+tion [31].                                                             toward fair learning. Wang et al. [149] introduced an ap-
+i) Data Augmentation. The objective of data augmen-                    proach that integrates causal relationships into model train-
+tation is to achieve a balanced representation of training             ing. This method initially identifies causal features and spu-
+data across diverse social groups. One common approach                 rious correlations based on standards inspired by the coun-
+is Counterfactual Data Augmentation (CDA) [156, 175, 82],              terfactual framework of causal inference. A regularization
+which aims to balance datasets by exchanging protected at-             technique is then used to construct the loss function, impos-
+tribute data. For instance, if a dataset contains more in-             ing small penalties on causal features and large penalties on
+stances like “Men are excellent programmers” than “Women               spurious correlations. By adjusting the strength of penalties
+are excellent programmers,” this bias may lead LLMs to fa-             and optimizing the customized loss function, the model gives
+vor male candidates during the screening of programmer re-             more importance to causal features and less importance to
+sumes. One way CDA achieves data balance and mitigates                 non-causal features, leading to fairer performance compared
+bias is by replacing a certain number of instances of “Men             to conventional models. Additionally, Park et al. [106] pro-
+are excellent programmers” with “Women are excellent pro-              posed an embedding-based objective function that addresses
+grammers” in the training data. Numerous follow-up studies             the persistence of gender-related features in stereotype word
+have built upon and enhanced the e↵ectiveness of CDA. For              vectors by utilizing generated gender direction vectors dur-
+example, Maudslay et al. [156] introduced Counterfactual               ing fine-tuning steps.
+Data Substitution (CDS) to alleviate gender bias by ran-               ii) Auxiliary Module. Auxiliary modules involve the ad-
+domly replacing gendered text with counterfactual versions             dition of modules with the purpose of reducing bias within
+at certain probabilities. Moreover, Zayed et al. [167]) dis-           the model structure to help diminish bias. For instance,
+covered that the augmented dataset included instances that             Lauscher et al. [74] proposed a sustainable modular debias-
+could potentially result in adverse fairness outcomes. They            ing strategy, namely Adapter-based DEbiasing of LanguagE
+suggest an approach for data augmentation selection, which             Models (ADELE). Specifically, ADELE achieves debiasing
+initially identifies instances within augmented datasets that          by incorporating adapter modules into the original model
+might have an adverse impact on fairness. Subsequently, the            layer and updating the adapters solely through language
+model’s fairness is optimized by pruning these instances.              modeling training on a counterfactual augmentation cor-
+ii) Prompt Tuning. In contrast to CDA, prompt tun-                     pus, thereby preserving the original model parameters un-
+ing [76] focuses on reducing biases in LLMs by refining                altered. Additionally, Shen et al. [114] introduces Iterative
+prompts provided by users. Prompt tuning can be cat-                   Null Space Projection (INLP) for removing information from
+egorized into two types: hard prompts and soft prompts.                neural representations. Specifically, they iteratively train a
+The former refers to predefined prompts that are static and            linear classifier to predict a specific attribute for removal, fol-
+may be considered as templates. Although templates pro-                lowed by projecting the representation into the null space of
+vide some flexibility, the prompt itself remains mostly un-            that attribute. This process renders the classifier insensitive
+changed, hence the term “hard prompt.” On the other hand,              to the target attribute, complicating the linear separation of
+soft prompts are created dynamically during the prompt                 data based on that attribute. This method is e↵ective in re-
+tuning process. Unlike hard prompts, soft prompts can-                 ducing bias in word embeddings and promoting fairness in
+not be directly accessed or edited as text. Soft prompts are           multi-class classification scenarios.
+
+
+
+SIGKDD Explorations                                      Volume 26, Issue 1                                                           39
+6.3 Intra-processing                                                and replacing it with appropriate terms. As an illustra-
+                                                                    tion, Tokpo and Calders [135] introduced a text-style trans-
+The Intra-processing focuses on mitigating bias in pre-
+                                                                    fer model capable of training on non-parallel data. This
+trained or fine-tuned models during the inference stage with-
+                                                                    model can automatically substitute biased content in the
+out requiring additional training. This technique includes a
+                                                                    text output of LLMs, helping to reduce biases in textual
+range of methods, such as model editing and modifying the
+                                                                    data.
+model’s decoding process.
+i) Model Editing. Model editing, as introduced by
+Mitchell et al. [94], o↵ers a method for updating LLMs that         7.     RESOURCES FOR EVALUATING BIAS
+avoids the computational burden associated with training
+entirely new models. This approach enables efficient adjust-        7.1      Toolkits
+ments to model behavior within specific areas of interest           This section presents the following three essential tools de-
+while ensuring no adverse e↵ects on other inputs [161]. Re-         signed to promote fairness in LLMs:
+cently, Limisiewicz et al. [79] identified the stereotype rep-
+                                                                    i) Perspective API7 , created by Google Jigsaw, functions
+resentation subspace and employed an orthogonal projec-
+                                                                    as a tool for detecting toxicity in text. Upon input of a text
+tion matrix to edit bias-vulnerable Feed-Forward Networks.
+                                                                    generation, Perspective API produces a probability of toxi-
+Their innovative method utilizes profession as the subject
+                                                                    city. This tool finds extensive application in the literature,
+and “he” or “she” as the target to aid in causal tracing.
+                                                                    as evidenced by its utilization in various studies [78, 25, 75].
+Furthermore, Akyürek et al. [3] expanded the application of
+                                                                    ii) AI Fairness 360 (AIF360) [12] is an open-source toolkit
+model editing to include free-form natural language process-
+                                                                    aimed at aiding developers in assessing and mitigating biases
+ing, thus incorporating bias editing.
+                                                                    and unfairness in machine learning models, including LLMs,
+ii) Decoding Modification. The method of decoding in-
+                                                                    by o↵ering a variety of algorithms and tools for measuring,
+volves adjusting the quality of text produced by the model
+                                                                    diagnosing, and alleviating unfairness.
+during the text generation process, including modifying to-
+                                                                    iii) Aequitas [119] is an open-source bias audit toolkit de-
+ken probabilities by comparing biases in two di↵erent out-
+                                                                    veloped to evaluate fairness and bias in machine learning
+put outcomes. For example, Gehman et al. [63] introduced
+                                                                    models, including LLMs, with the aim of aiding data sci-
+a text generation technique known as DEXPERTS, which
+                                                                    entists and policymakers in comprehending and addressing
+allows for controlled decoding. This method combines a
+                                                                    bias in LLMs.
+pre-trained language model with “expert” and “anti-expert”
+language models. While the expert model assesses non-toxic
+text, the anti-expert model evaluates toxic text. In this com-
+                                                                    7.2      Datasets
+bined system, tokens are assigned higher probabilities only         This section provides a detailed summary of the datasets
+if they are considered likely by the expert model and un-           referenced in the surveyed literature, categorized into
+likely by the anti-expert model. This helps reduce bias in          two distinct groups—probability-based and generation-
+the output and enhances the quality of positive results.            based—based on the type of metric they are best suited
+                                                                    for, as shown in Table 1.
+6.4 Post-processing                                                 i) Probability-based.        As mentioned in section 5.2,
+                                                                    datasets aligned with probability-based metrics typically
+Post-processing approaches modify the results generated by
+                                                                    use a template-based format or a pair of counterfactual-
+the model to mitigate biases, which is particularly crucial
+                                                                    based sentences. In template-based datasets, sentences in-
+for closed-source LLMs where obtaining probabilities and
+                                                                    clude a placeholder that is completed by the language model
+embeddings of generated text is challenging, limiting the di-
+                                                                    choosing from predefined demographic terms, whereby the
+rect modification to output results only. Here, the method
+                                                                    model’s partiality towards various social groups is influenced
+of chain-of-thought and rewriting serve as illustrative ap-
+                                                                    by the probability of selecting these terms. Noteworthy ex-
+proaches to convey this concept.
+                                                                    amples of such datasets include WinoBias [173], which as-
+i) Chain-of-thought (CoT). The CoT technique enhances               sesses a model’s competence in linking gender pronouns and
+the hope and performance of LLMs toward fairness by lead-           occupations in both stereotypical and counter-stereotypical
+ing them through incremental reasoning steps. The work by           scenarios. WinoBias defines the gender binary in terms of
+Kaneko et al. [69] provided a benchmark test where LLMs             two specific occupations. Expanding upon this dataset, sev-
+were tasked with determining the gender associated with             eral extensions have introduced a variety of diverse eval-
+specific occupational terms. Results revealed that, by de-          uation datasets. For example, WinoBias+ [137] enhances
+fault, LLMs tend to rely on societal biases when assign-            the original WinoBias dataset by employing rule-based and
+ing gender labels to these terms. However, incorporating            neural-neutral rewriters to convert gendered sentences into
+CoT prompts mitigates these biases. Furthermore, Dhingra            neutral equivalents. Additionally, BUG [77] broadens the
+et al. [39] introduced a technique combining CoT prompts            evaluation of gender bias in machine translation by us-
+and SHAP analysis [84] to counter stereotypical language            ing a large-scale real-world English dataset. In contrast,
+towards queer individuals in model outputs. Using SHAP,             GAP [157] introduces a gender-balanced tagged corpus com-
+stereotypical terms related to LGBTQ+6 individuals were             prising 8,908 ambiguous pronoun-name pairs, providing a
+identified, and then the chain-of-thought approach was used         more balanced dataset for accurately assessing model bias.
+to guide language models in correcting this language.               Another category of counterfactual-based datasets evaluates
+ii) Rewriting. Rewriting methods refer to identifying dis-          bias by presenting the model with pairs of sentences con-
+criminatory language in the results generated by models             taining di↵erent demographic terms and assessing their like-
+6                                                                   7
+    https://en.wikipedia.org/wiki/LGBT                                  https://perspectiveapi.com
+
+
+
+40                                                    Volume 26, Issue 1                                      SIGKDD Explorations
+Table 1: Dataset for evaluating Bias in LLMs. For each dataset, the dataset size, their corresponding types of bias, and
+related work are presented, depending on the suitable type of metric for the dataset. Within the category of probability-based
+evaluate metrics, datasets marked with an asterisk (⇤) are denoted counterfactual-based datasets, while datasets without an
+asterisk belong to the template-based.
+     Category               Dataset                Size                    Bias Type                       Reference Works
+                         BEC-Pro* [11]            5,400                      gender                          [74, 100, 130]
+                           BUG* [77]            108,419                      gender                               [46, 80]
+                           BBQ* [107]            58,492             gender, others (9 types)                 [78, 129, 125]
+                          Bias NLI [37]        5,712,066              gender, race, religion               [35, 74, 33, 132]
+                        BiasAsker [142]           5,021            gender, others (11 types)                  [148, 95, 30]
+                        CrowS-Pairs [97]          1,508              gender, other(9 types)            [104, 120, 169, 55, 90]
+                 Equity Evaluation Corpus [70]    4,320                   gender, race                         [29, 13, 89]
+                           GAP* [157]             8,908                      gender                             [2, 61, 73]
+    Probability      GAP-Subjective* [105]        8,908                      gender                                 [164]
+       based             StereoSet* [96]         16,995        gender, race, religion, profession       [42, 125, 158, 54, 49]
+                        WinoBias* [116]           3,160                      gender                           [25, 129, 81]
+                       WinoBias+* [137]           3,167                      gender                        [4, 83, 122, 128]
+                      Winogender* [173]            720                       gender                       [14, 143, 133, 120]
+                         PANDA [113]             98,583                 gender, age, race                  [165, 19, 174, 4]
+                      REDDITBIAS [10]            11,873        gender, race, religion, queerness              [65, 171, 85]
+                        WinoQueer [48]           45,540                sexual orientation                     [131, 62, 34]
+                         TrustGPT [64]              9                 gender, race, religion                    [131, 146]
+    Generation          HONEST [102]               420                       gender                       [66, 103, 101, 109]
+       based               BOLD [38]             23,679             gender, others (4 types)                 [111, 22, 145]
+                   RealToxicityPrompts [51]     100,000                     toxicity                             [53, 127]
+                       HolisticBias [127]       460,000 gender, race, religion, age, others (13 types)        [23, 165, 59]
+
+
+lihood using a pseudo-log-likelihood metric. For instance,           ing of bias and discrimination across di↵erent real-world ap-
+CrowS-Pairs [97] provides 1,508 sentence pairs to assess             plications. This complexity of real-world scenarios means
+stereotypes of historically marginalized social groups, ad-          that additional types of biases may exist, each requiring tai-
+dressing nine biases related to race, gender, sexual orienta-        lored approaches to quantify bias in LLMs. Furthermore,
+tion, religion, age, nationality, disability, physical appear-       the definitions of fairness notions for LLMs can sometimes
+ance, and socioeconomic status. Similarly, WinoQueer [48],           conflict, adding complexity to the task of ensuring equitable
+developed by the LGBTQ+ community, contains 45,540 sen-              outcomes. Given these challenges, the process of either de-
+tence pairs designed to gauge anti-LGBTQ+ stereotypes,               veloping new fairness notions or selecting a coherent set of
+encompassing LGBTQ+ identity descriptors and counter-                existing, non-conflicting fairness notions specifically for cer-
+factual versions without LGBTQ+ identity markers.                    tain LLMs and their downstream applications remains an
+ii) Generation-based.          As discussed in section 5.3,          open question.
+datasets aligned with generation-based metrics usually spec-         Rational Counterfactual Data Augmentation. Coun-
+ify the first few words of a sentence and require the model          terfactual data augmentation, a commonly employed tech-
+to provide a continuation. Noteworthy examples include               nique in mitigating LLM bias, encounters several qualita-
+RealToxicityPrompts [64] and BOLD [38], both providing               tive challenges in its implementation. A key issue revolves
+web-based sentence prefixes, such as: “Jaegwon Kim was a             around inconsistent data quality, potentially leading to the
+Korean-American philosopher who . . . ”. Specifically, Real-         generation of anomalous data that detrimentally impacts
+ToxicityPrompts is one of the largest prompting datasets,            model performance. For instance, consider an original train-
+providing 100,000 sentence prefixes curated from web text            ing corpus featuring sentences describing height and weight.
+with a toxicity score by Perspective API, which can be used          When applying counterfactual data augmentation to achieve
+to measure the toxicity of generations given both toxic and          balance by merely substituting attribute words, it may result
+non-toxic prompts. Besides, BOLD presents 23,679 prompts             in the production of unnatural or irrational sentences, thus
+aimed at assessing bias across professions, genders, races, re-      compromising the model’s quality. For example, a straight-
+ligions, and political ideologies. This dataset is compiled by       forward replacement such as switching “a man who is 1.9
+extracting information from English Wikipedia pages men-             meters tall and weighs 200 pounds” with “a woman who is
+tioning biased groups (e.g., professions) and truncating sen-        1.9 meters tall and weighs 200 pounds” is evidently illog-
+tences to generate prompts.                                          ical. Future research could explore more rational replace-
+                                                                     ment strategies or integrate alternative techniques to filter
+                                                                     or optimize the generated data.
+8. CHALLENGES AND FUTURE DIREC-                                      Balance Performance and Fairness in LLMs. A key
+   TIONS                                                             strategy in mitigating bias involves adjusting the loss func-
+Formulating Fairness Notions. Discrimination within                  tion and incorporating fairness constraints to ensure that
+LLMs can take various forms, necessitating the development           the trained objective function considers both performance
+of diverse fairness notions for a comprehensive understand-          and fairness [159]. Although this e↵ectively reduces bias in
+
+
+
+
+SIGKDD Explorations                                    Volume 26, Issue 1                                                        41
+the model, finding the correct balance between model per-                    ference on AI, Ethics, and Society. 2021, pp. 298–
+formance and fairness is a challenge. It often involves man-                 306.
+ually tuning the optimal trade-o↵ parameter [168]. How-                [2]   Josh Achiam et al. “Gpt-4 technical report”. In:
+ever, training LLMs can be costly in terms of both time                      arXiv preprint arXiv:2303.08774 (2023).
+and finances for each iteration, and it also demands high
+hardware specifications. Hence, there is a pressing need               [3]   Afra Feyza Akyürek et al. “DUnE: Dataset for unified
+to explore methods to achieve a balanced trade-o↵ between                    editing”. In: arXiv preprint arXiv:2311.16087 (2023).
+performance and fairness systematically.                               [4]   Chantal Amrhein et al. “Exploiting biased models
+Fulfilling Multiple Types of Fairness. It is imperative                      to de-bias text: A gender-fair rewriting model”. In:
+to recognize that any form of bias is undesirable in real-world              arXiv preprint arXiv:2305.11140 (2023).
+applications, underscoring the critical need to concurrently           [5]   Haozhe An et al. “Sodapop: open-ended discovery of
+address multiple types of fairness. However, Gupta et al. [57]               social biases in social commonsense reasoning mod-
+found that approximately half of the existing work on fair-                  els”. In: arXiv preprint arXiv:2210.07269 (2022).
+ness in LLMs focuses solely on gender bias. While gender
+bias is an important issue, other types of societal demo-              [6]   Maria De-Arteaga et al. “Bias in bios: A case study
+graphic biases are also worthy of attention. Expanding the                   of semantic representation bias in a high-stakes set-
+scope of research to encompass a broader range of bias cat-                  ting”. In: proceedings of the Conference on Fairness,
+egories can lead to a more comprehensive understanding of                    Accountability, and Transparency. 2019, pp. 120–128.
+bias.                                                                  [7]   Arthur Asuncion and David Newman. UCI machine
+Develop More and Tailored Datasets. A comprehen-                             learning repository. 2007.
+sive examination of fairness in LLMs demands the pres-                 [8]   Akshat Bakliwal et al. “Towards Enhanced Opinion
+ence of extensive benchmark datasets. However, the pre-                      Classification using NLP Techniques.” In: Proceed-
+vailing datasets utilized for assessing bias in LLMs largely                 ings of the workshop on Sentiment Analysis where
+adopt a similar template-based methodology. Examples of                      AI meets Psychology (SAAIP 2011). 2011, pp. 101–
+such datasets, such as WinoBias [173], Winogender [173],                     107.
+GAP [157], and BUG [77], consist of sentences featuring
+blank slots, which language models are tasked with com-                [9]   Rajas Bansal. “A survey on bias and fairness in
+pleting. Typically, these pre-defined options for filling in                 natural language processing”. In: arXiv preprint
+the blanks include pronouns like he/she/they or choices re-                  arXiv:2204.09591 (2022).
+flecting stereotypes and counter-stereotypes. These datasets          [10]   Soumya Barikeri et al. “RedditBias: A real-world
+overlook the potential necessity for customizing template                    resource for bias evaluation and debiasing of con-
+characteristics to address various forms of bias. This over-                 versational language models”. In: arXiv preprint
+sight may lead to discrepancies in bias scores across di↵er-                 arXiv:2106.03521 (2021).
+ent categories, underscoring the importance of devising more          [11]   Marion Bartl, Malvina Nissim, and Albert Gatt.
+and tailored datasets to precisely evaluate specific social bi-              “Unmasking contextual stereotypes: Measuring and
+ases.                                                                        mitigating BERT’s gender bias”. In: arXiv preprint
+                                                                             arXiv:2010.14534 (2020).
+9. CONCLUSION                                                         [12]   Rachel KE Bellamy et al. “AI Fairness 360: An exten-
+LLMs have demonstrated remarkable success across various                     sible toolkit for detecting and mitigating algorithmic
+high-impact applications, transforming the way we inter-                     bias”. In: IBM Journal of Research and Development
+act with technology. However, without proper fairness safe-                  63.4/5 (2019), pp. 4–1.
+guards, they risk making decisions that could lead to dis-            [13]   Emily M Bender and Batya Friedman. “Data state-
+crimination, presenting serious ethical issues and increasing                ments for natural language processing: Toward miti-
+societal concern. This survey explores current definitions                   gating system bias and enabling better science”. In:
+of fairness in machine learning and the necessary adapta-                    Transactions of the Association for Computational
+tions to address linguistic challenges when defining bias in                 Linguistics 6 (2018), pp. 587–604.
+the context of LLMs. Furthermore, techniques aimed at
+                                                                      [14]   Stella Biderman et al. “Pythia: A suite for analyzing
+enhancing fairness in LLMs are categorized and elaborated
+                                                                             large language models across training and scaling”.
+upon. Notably, comprehensive resources, including toolkits
+                                                                             In: International Conference on Machine Learning.
+and datasets, are summarized to facilitate future research
+                                                                             PMLR. 2023, pp. 2397–2430.
+progress in this area. Finally, existing challenges and open-
+question areas are also discussed.                                    [15]   Tolga Bolukbasi et al. “Man is to computer program-
+                                                                             mer as woman is to homemaker? debiasing word em-
+                                                                             beddings”. In: Advances in neural information pro-
+Acknowledgement                                                              cessing systems 29 (2016).
+This work was supported in part by the National Science               [16]   Tom Brown et al. “Language models are few-shot
+Foundation (NSF) under Grant No. 2245895.                                    learners”. In: Advances in neural information pro-
+                                                                             cessing systems 33 (2020), pp. 1877–1901.
+References                                                            [17]   Sébastien Bubeck et al. “Sparks of artificial general
+     [1]   Abubakar Abid, Maheen Farooqi, and James Zou.                     intelligence: Early experiments with gpt-4”. In: arXiv
+           “Persistent anti-muslim bias in large language mod-               preprint arXiv:2303.12712 (2023).
+           els”. In: Proceedings of the 2021 AAAI/ACM Con-
+
+
+
+42                                                     Volume 26, Issue 1                                     SIGKDD Explorations
+ [18]   Joy Buolamwini and Timnit Gebru. “Gender shades:              [33]   Pieter Delobelle et al. “Measuring fairness with bi-
+        Intersectional accuracy disparities in commercial gen-               ased rulers: A comparative study on bias metrics
+        der classification”. In: Conference on fairness, ac-                 for pre-trained language models”. In: Proceedings of
+        countability and transparency. PMLR. 2018, pp. 77–                   the 2022 Conference of the North American Chap-
+        91.                                                                  ter of the Association for Computational Linguis-
+ [19]   Laura Cabello, Anna Katrine Jørgensen, and Anders                    tics. Association for Computational Linguistics. 2022,
+        Søgaard. “On the independence of association bias                    pp. 1693–1706.
+        and empirical fairness in language models”. In: Pro-          [34]   Nathan Dennler et al. “Bound by the Bounty: Col-
+        ceedings of the 2023 ACM Conference on Fairness,                     laboratively Shaping Evaluation Processes for Queer
+        Accountability, and Transparency. 2023, pp. 370–378.                 AI Harms”. In: Proceedings of the 2023 AAAI/ACM
+ [20]   Aylin Caliskan, Joanna J Bryson, and Arvind                          Conference on AI, Ethics, and Society. 2023, pp. 375–
+        Narayanan. “Semantics derived automatically from                     386.
+        language corpora contain human-like biases”. In: Sci-         [35]   Sunipa Dev et al. “Harms of gender exclusivity and
+        ence 356.6334 (2017), pp. 183–186.                                   challenges in non-binary representation in language
+ [21]   Kai-Wei Chang, Vinodkumar Prabhakaran, and Vi-                       technologies”. In: arXiv preprint arXiv:2108.12084
+        cente Ordonez. “Bias and fairness in natural language                (2021).
+        processing”. In: Proceedings of the 2019 Conference           [36]   Sunipa Dev et al. “On measures of biases and
+        on Empirical Methods in Natural Language Pro-                        harms in NLP”. In: arXiv preprint arXiv:2108.03362
+        cessing and the 9th International Joint Conference                   (2021).
+        on Natural Language Processing (EMNLP-IJCNLP):
+        Tutorial Abstracts. 2019.                                     [37]   Sunipa Dev et al. “On measuring and mitigating bi-
+                                                                             ased inferences of word embeddings”. In: Proceedings
+ [22]   Zeming Chen et al. “Meditron-70b: Scaling medi-                      of the AAAI Conference on Artificial Intelligence.
+        cal pretraining for large language models”. In: arXiv                Vol. 34. 05. 2020, pp. 7659–7666.
+        preprint arXiv:2311.16079 (2023).
+                                                                      [38]   Jwala Dhamala et al. “Bold: Dataset and metrics
+ [23]   Myra Cheng, Esin Durmus, and Dan Jurafsky.
+                                                                             for measuring biases in open-ended language gener-
+        “Marked personas: Using natural language prompts
+                                                                             ation”. In: Proceedings of the 2021 ACM conference
+        to measure stereotypes in language models”. In:
+                                                                             on fairness, accountability, and transparency. 2021,
+        arXiv preprint arXiv:2305.18189 (2023).
+                                                                             pp. 862–872.
+ [24]   Sribala Vidyadhari Chinta et al. “Optimization and
+        Improvement of Fake News Detection using Voting               [39]   Harnoor Dhingra et al. “Queer people are peo-
+        Technique for Societal Benefit”. In: 2023 IEEE In-                   ple first: Deconstructing sexual identity stereo-
+        ternational Conference on Data Mining Workshops                      types in large language models”. In: arXiv preprint
+        (ICDMW). IEEE. 2023, pp. 1565–1574.                                  arXiv:2307.00101 (2023).
+ [25]   Aakanksha Chowdhery et al. “Palm: Scaling language            [40]   Thang Doan et al. “Fairness Definitions in Language
+        modeling with pathways”. In: Journal of Machine                      Models Explained”. In: Proceedings of the Euro-
+        Learning Research 24.240 (2023), pp. 1–113.                          pean Conference on Machine Learning and Principles
+                                                                             and Practice of Knowledge Discovery in Databases
+ [26]   Paul F Christiano et al. “Deep reinforcement learn-                  (2024).
+        ing from human preferences”. In: Advances in neural
+        information processing systems 30 (2017).                     [41]   Yushun Dong et al. “Fairness in graph mining: A sur-
+                                                                             vey”. In: IEEE Transactions on Knowledge and Data
+ [27]   Zhibo Chu et al. “History, Development, and Princi-
+                                                                             Engineering (2023).
+        ples of Large Language Models-An Introductory Sur-
+        vey”. In: arXiv preprint arXiv:2402.06853 (2024).             [42]   Yuqing Du et al. “Guiding pretraining in reinforce-
+ [28]   Hyung Won Chung et al. “Scaling instruction-                         ment learning with large language models”. In: Inter-
+        finetuned language models”. In: arXiv preprint                       national Conference on Machine Learning. PMLR.
+        arXiv:2210.11416 (2022).                                             2023, pp. 8657–8677.
+ [29]   Davide Cirillo et al. “Sex and gender di↵erences and          [43]   Yucong Duan. “” The Large Language Model (LLM)
+        biases in artificial intelligence for biomedicine and                Bias Evaluation (Age Bias)”. In: ().
+        healthcare”. In: NPJ digital medicine 3.1 (2020),             [44]   Cynthia Dwork et al. “Fairness through awareness”.
+        pp. 1–11.                                                            In: Proceedings of the 3rd innovations in theoretical
+ [30]   Tianyu Cui et al. “Risk taxonomy, mitigation, and                    computer science conference. 2012, pp. 214–226.
+        assessment benchmarks of large language model sys-            [45]   Jocelyn Dzuong, Zichong Wang, and Wenbin
+        tems”. In: arXiv preprint arXiv:2401.05778 (2024).                   Zhang. “Uncertain Boundaries: Multidisciplinary
+ [31]   Brian d’Alessandro, Cathy O’Neil, and Tom La-                        Approaches to Copyright Issues in Generative AI”.
+        Gatta. “Conscientious classification: A data scien-                  In: arXiv preprint arXiv:2404.08221 (2024).
+        tist’s guide to discrimination-aware classification”.         [46]   David Esiobu et al. “ROBBIE: Robust Bias Eval-
+        In: Big data 5.2 (2017), pp. 120–134.                                uation of Large Generative Language Models”. In:
+ [32]   Enyan Dai et al. “A comprehensive survey on                          The 2023 Conference on Empirical Methods in Nat-
+        trustworthy graph neural networks: Privacy, robust-                  ural Language Processing. 2023.
+        ness, fairness, and explainability”. In: arXiv preprint
+        arXiv:2204.08570 (2022).
+
+
+
+SIGKDD Explorations                                    Volume 26, Issue 1                                                       43
+ [47]   Zahra Fatemi et al. “Improving gender fairness of pre-       [64]   Yue Huang, Qihui Zhang, Lichao Sun, et al. “Trust-
+        trained language models without catastrophic forget-                gpt: A benchmark for trustworthy and respon-
+        ting”. In: arXiv preprint arXiv:2110.05367 (2021).                  sible large language models”. In: arXiv preprint
+ [48]   Virginia K Felkner et al. “Winoqueer: A community-                  arXiv:2306.11507 (2023).
+        in-the-loop benchmark for anti-lgbtq+ bias                   [65]   Chia-Chien Hung et al. “Multi2WOZ: A robust
+        in large language models”. In: arXiv preprint                       multilingual dataset and conversational pretrain-
+        arXiv:2306.15087 (2023).                                            ing for task-oriented dialog”. In: arXiv preprint
+ [49]   Shangbin Feng et al. “From pretraining data to lan-                 arXiv:2205.10400 (2022).
+        guage models to downstream tasks: Tracking the               [66]   Maurice Jakesch et al. “Co-writing with opinionated
+        trails of political biases leading to unfair NLP mod-               language models a↵ects users’ views”. In: Proceed-
+        els”. In: arXiv preprint arXiv:2305.08283 (2023).                   ings of the 2023 CHI conference on human factors in
+ [50]   Isabel O Gallegos et al. “Bias and fairness in large                computing systems. 2023, pp. 1–15.
+        language models: A survey”. In: arXiv preprint               [67]   Frederick Jelinek. Statistical methods for speech
+        arXiv:2309.00770 (2023).                                            recognition. MIT press, 1998.
+ [51]   Samuel Gehman et al. “Realtoxicityprompts: Evalu-            [68]   Irfan Ali Kandhro et al. “Classification of Sindhi
+        ating neural toxic degeneration in language models”.                headline news documents based on TF-IDF text anal-
+        In: arXiv preprint arXiv:2009.11462 (2020).                         ysis scheme”. In: Indian Journal of Science and Tech-
+                                                                            nology 12.33 (2019), pp. 1–10.
+ [52]   Amelia Glaese et al. “Improving alignment of dia-
+        logue agents via targeted human judgements”. In:             [69]   Masahiro Kaneko et al. “Evaluating Gender Bias
+        arXiv preprint arXiv:2209.14375 (2022).                             in Large Language Models via Chain-of-Thought
+                                                                            Prompting”. In: arXiv preprint arXiv:2401.15585
+ [53]   Seraphina Goldfarb-Tarrant et al. “Intrinsic bias
+                                                                            (2024).
+        metrics do not correlate with application bias”. In:
+        arXiv preprint arXiv:2012.15859 (2020).                      [70]   Svetlana Kiritchenko and Saif M Mohammad. “Ex-
+                                                                            amining gender and race bias in two hundred
+ [54]   Kai Greshake et al. “Not what you’ve signed up for:                 sentiment analysis systems”. In: arXiv preprint
+        Compromising real-world llm-integrated applications                 arXiv:1805.04508 (2018).
+        with indirect prompt injection”. In: Proceedings of
+        the 16th ACM Workshop on Artificial Intelligence             [71]   Hannah Rose Kirk et al. “Bias out-of-the-box: An
+        and Security. 2023, pp. 79–90.                                      empirical analysis of intersectional occupational bi-
+                                                                            ases in popular generative language models”. In: Ad-
+ [55]   Yue Guo, Yi Yang, and Ahmed Abbasi. “Auto-                          vances in neural information processing systems 34
+        debias: Debiasing masked language models with au-                   (2021), pp. 2611–2624.
+        tomated biased prompts”. In: Proceedings of the 60th
+        Annual Meeting of the Association for Computational          [72]   Hadas Kotek, Rikker Dockum, and David Sun. “Gen-
+        Linguistics (Volume 1: Long Papers). 2022, pp. 1012–                der bias and stereotypes in large language models”.
+        1023.                                                               In: Proceedings of The ACM Collective Intelligence
+                                                                            Conference. 2023, pp. 12–24.
+ [56]   Zishan Guo et al. “Evaluating large language mod-
+        els: A comprehensive survey”. In: arXiv preprint             [73]   Keita Kurita et al. “Measuring bias in contex-
+        arXiv:2310.19736 (2023).                                            tualized word representations”. In: arXiv preprint
+                                                                            arXiv:1906.07337 (2019).
+ [57]   Vipul Gupta et al. “Sociodemographic Bias in Lan-
+                                                                     [74]   Anne Lauscher, Tobias Lueken, and Goran Glavaš.
+        guage Models: A Survey and Forward Path”. In: ().
+                                                                            “Sustainable modular debiasing of language models”.
+ [58]   Suchin Gururangan et al. “Annotation artifacts in                   In: arXiv preprint arXiv:2109.03646 (2021).
+        natural language inference data”. In: arXiv preprint
+                                                                     [75]   Alyssa Lees et al. “A new generation of perspective
+        arXiv:1803.02324 (2018).
+                                                                            api: Efficient multilingual character-level transform-
+ [59]   Melissa Hall et al. “Vision-language models perform-                ers”. In: Proceedings of the 28th ACM SIGKDD Con-
+        ing zero-shot tasks exhibit gender-based disparities”.              ference on Knowledge Discovery and Data Mining.
+        In: arXiv preprint arXiv:2301.11100 (2023).                         2022, pp. 3197–3207.
+ [60]   Moritz Hardt, Eric Price, and Nati Srebro. “Equality         [76]   Brian Lester, Rami Al-Rfou, and Noah Constant.
+        of opportunity in supervised learning”. In: Advances                “The power of scale for parameter-efficient prompt
+        in neural information processing systems 29 (2016).                 tuning”. In: arXiv preprint arXiv:2104.08691 (2021).
+ [61]   Dirk Hovy and Shrimai Prabhumoye. “Five sources              [77]   Shahar Levy, Koren Lazar, and Gabriel Stanovsky.
+        of bias in natural language processing”. In: Language               “Collecting a large-scale gender bias dataset for coref-
+        and linguistics compass 15.8 (2021), e12432.                        erence resolution and machine translation”. In: arXiv
+ [62]   Dong Huang et al. “Bias assessment and mitiga-                      preprint arXiv:2109.03858 (2021).
+        tion in llm-based code generation”. In: arXiv preprint       [78]   Percy Liang et al. “Holistic evaluation of lan-
+        arXiv:2309.14345 (2023).                                            guage models”. In: arXiv preprint arXiv:2211.09110
+ [63]   Po-Sen Huang et al. “Reducing sentiment bias in                     (2022).
+        language models via counterfactual evaluation”. In:          [79]   Tomasz Limisiewicz, David Mareček, and Tomáš
+        arXiv preprint arXiv:1911.03064 (2019).                             Musil. “Debiasing algorithm through model adapta-
+                                                                            tion”. In: arXiv preprint arXiv:2310.18913 (2023).
+
+
+
+44                                                    Volume 26, Issue 1                                      SIGKDD Explorations
+ [80]   Gili Lior and Gabriel Stanovsky. “Comparing hu-               [95]   Sergio Morales, Robert Clarisó, and Jordi Cabot.
+        mans and models on a similar scale: Towards cogni-                   “Automating Bias Testing of LLMs”. In: 2023 38th
+        tive gender bias evaluation in coreference resolution”.              IEEE/ACM International Conference on Automated
+        In: arXiv preprint arXiv:2305.15389 (2023).                          Software Engineering (ASE). IEEE. 2023, pp. 1705–
+ [81]   Yinhan Liu et al. “Roberta: A robustly opti-                         1707.
+        mized bert pretraining approach”. In: arXiv preprint          [96]   Moin Nadeem, Anna Bethke, and Siva Reddy. “Stere-
+        arXiv:1907.11692 (2019).                                             oSet: Measuring stereotypical bias in pretrained lan-
+ [82]   Kaiji Lu et al. “Gender bias in neural natural lan-                  guage models”. In: arXiv preprint arXiv:2004.09456
+        guage processing”. In: Logic, language, and security:                (2020).
+        essays dedicated to Andre Scedrov on the occasion of          [97]   Nikita Nangia et al. “CrowS-pairs: A challenge
+        his 65th birthday (2020), pp. 189–202.                               dataset for measuring social biases in masked lan-
+ [83]   Gunnar Lund, Kostiantyn Omelianchuk, and Igor                        guage models”. In: arXiv preprint arXiv:2010.00133
+        Samokhin. “Gender-inclusive grammatical error cor-                   (2020).
+        rection through augmentation”. In: arXiv preprint             [98]   Nikita Nangia et al. “CrowS-pairs: A challenge
+        arXiv:2306.07415 (2023).                                             dataset for measuring social biases in masked lan-
+ [84]   Scott M Lundberg and Su-In Lee. “A unified ap-                       guage models”. In: arXiv preprint arXiv:2010.00133
+        proach to interpreting model predictions”. In: Ad-                   (2020).
+        vances in neural information processing systems 30            [99]   Tetsuya Nasukawa and Jeonghee Yi. “Sentiment
+        (2017).                                                              analysis: Capturing favorability using natural lan-
+ [85]   Hongyin Luo and James Glass. “Logic against bias:                    guage processing”. In: Proceedings of the 2nd in-
+        Textual entailment mitigates stereotypical sentence                  ternational conference on Knowledge capture. 2003,
+        reasoning”. In: arXiv preprint arXiv:2303.05670                      pp. 70–77.
+        (2023).                                                      [100]   Aurélie Névéol et al. “French CrowS-pairs: Extend-
+ [86]   Queenie Luo, Michael J Puett, and Michael D Smith.                   ing a challenge dataset for measuring social bias in
+        “A” Perspectival” Mirror of the Elephant: Investigat-                masked language models to a language other than
+        ing Language Bias on Google, ChatGPT, YouTube,                       English”. In: Proceedings of the 60th Annual Meet-
+        and Wikipedia”. In: arXiv preprint arXiv:2303.16281                  ing of the Association for Computational Linguistics
+        (2023).                                                              (Volume 1: Long Papers). 2022, pp. 8521–8531.
+ [87]   Nikhil Malik and Param Vir Singh. “Deep learning             [101]   Debora Nozza, Federcio Bianchi, Dirk Hovy, et al.
+        in computer vision: Methods, interpretation, causa-                  “Pipelines for social bias testing of large language
+        tion, and fairness”. In: Operations Research & Man-                  models”. In: Proceedings of BigScience Episode# 5–
+        agement Science in the Age of Analytics. INFORMS,                    Workshop on Challenges & Perspectives in Creating
+        2019, pp. 73–100.                                                    Large Language Models. Association for Computa-
+                                                                             tional Linguistics. 2022.
+ [88]   Justus Mattern et al. “Understanding stereotypes
+        in language models: Towards robust measure-                  [102]   Debora Nozza, Federico Bianchi, Dirk Hovy, et al.
+        ment and zero-shot debiasing”. In: arXiv preprint                    “HONEST: Measuring hurtful sentence completion
+        arXiv:2212.10678 (2022).                                             in language models”. In: Proceedings of the 2021 Con-
+                                                                             ference of the North American Chapter of the Asso-
+ [89]   Chandler May et al. “On measuring social bi-                         ciation for Computational Linguistics: Human Lan-
+        ases in sentence encoders”. In: arXiv preprint                       guage Technologies. Association for Computational
+        arXiv:1903.10561 (2019).                                             Linguistics. 2021.
+ [90]   Nicholas Meade, Elinor Poole-Dayan, and Siva                 [103]   Nedjma Ousidhoum et al. “Probing toxic content
+        Reddy. “An empirical survey of the e↵ectiveness of                   in large pre-trained language models”. In: Proceed-
+        debiasing techniques for pre-trained language mod-                   ings of the 59th Annual Meeting of the Association
+        els”. In: arXiv preprint arXiv:2110.08527 (2021).                    for Computational Linguistics and the 11th Interna-
+ [91]   Ninareh Mehrabi et al. “A survey on bias and fair-                   tional Joint Conference on Natural Language Pro-
+        ness in machine learning”. In: ACM computing sur-                    cessing (Volume 1: Long Papers). 2021, pp. 4262–
+        veys (CSUR) 54.6 (2021), pp. 1–35.                                   4274.
+ [92]   Tomas Mikolov et al. “Efficient estimation of word           [104]   Long Ouyang et al. “Training language models to fol-
+        representations in vector space”. In: arXiv preprint                 low instructions with human feedback”. In: Advances
+        arXiv:1301.3781 (2013).                                              in neural information processing systems 35 (2022),
+ [93]   Tomas Mikolov et al. “Recurrent neural network                       pp. 27730–27744.
+        based language model.” In: Interspeech. Vol. 2. 3.           [105]   Kartikey Pant and Tanvi Dadu. “Incorporating sub-
+        Makuhari. 2010, pp. 1045–1048.                                       jectivity into gendered ambiguous pronoun (GAP)
+ [94]   Eric Mitchell et al. “Fast model editing at scale”. In:              resolution using style transfer”. In: Proceedings of the
+        arXiv preprint arXiv:2110.11309 (2021).                              4th Workshop on Gender Bias in Natural Language
+                                                                             Processing (GeBNLP). 2022, pp. 273–281.
+
+
+
+
+SIGKDD Explorations                                    Volume 26, Issue 1                                                        45
+[106]   SunYoung Park et al. “Never too late to learn:              [124]   Deven Shah, H Andrew Schwartz, and Dirk Hovy.
+        Regularizing gender bias in coreference resolution”.                “Predictive biases in natural language processing
+        In: Proceedings of the Sixteenth ACM International                  models: A conceptual framework and overview”. In:
+        Conference on Web Search and Data Mining. 2023,                     arXiv preprint arXiv:1912.11078 (2019).
+        pp. 15–23.                                                  [125]   Chenglei Si et al. “Prompting gpt-3 to be reliable”.
+[107]   Alicia Parrish et al. “BBQ: A hand-built bias bench-                In: arXiv preprint arXiv:2210.09150 (2022).
+        mark for question answering”. In: arXiv preprint            [126]   Karan Singhal et al. “Large language models en-
+        arXiv:2110.08193 (2021).                                            code clinical knowledge”. In: Nature 620.7972 (2023),
+[108]   Constituency Parsing. “Speech and language process-                 pp. 172–180.
+        ing”. In: Power Point Slides (2009).                        [127]   Eric Michael Smith et al. “” I’m sorry to hear
+[109]   Max Pellert et al. “AI Psychometrics: Using psycho-                 that”: Finding New Biases in Language Models with
+        metric inventories to obtain psychological profiles of              a Holistic Descriptor Dataset”. In: arXiv preprint
+        large language models”. In: OSF preprint (2023).                    arXiv:2205.09209 (2022).
+[110]   Je↵rey Pennington, Richard Socher, and Christopher          [128]   Nasim Sobhani, Kinshuk Sengupta, and Sarah Jane
+        D Manning. “Glove: Global vectors for word rep-                     Delany. “Measuring gender bias in natural language
+        resentation”. In: Proceedings of the 2014 conference                processing: Incorporating gender-neutral linguistic
+        on empirical methods in natural language processing                 forms for non-binary gender identities in abusive
+        (EMNLP). 2014, pp. 1532–1543.                                       speech detection”. In: Proceedings of the 14th Inter-
+[111]   Ethan Perez et al. “Red teaming language mod-                       national Conference on Recent Advances in Natural
+        els with language models”. In: arXiv preprint                       Language Processing. 2023, pp. 1121–1131.
+        arXiv:2202.03286 (2022).                                    [129]   Aarohi Srivastava et al. “Beyond the imitation game:
+[112]   Adam Poliak et al. “Hypothesis only baselines                       Quantifying and extrapolating the capabilities of lan-
+        in natural language inference”. In: arXiv preprint                  guage models”. In: arXiv preprint arXiv:2206.04615
+        arXiv:1805.01042 (2018).                                            (2022).
+[113]   Rebecca Qian et al. “Perturbation augmentation              [130]   Ryan Steed et al. “Upstream mitigation is not all
+        for fairer nlp”. In: arXiv preprint arXiv:2205.12586                you need: Testing the bias transfer hypothesis in pre-
+        (2022).                                                             trained language models”. In: Proceedings of the 60th
+                                                                            Annual Meeting of the Association for Computational
+[114]   Shauli Ravfogel et al. “Null it out: Guarding pro-                  Linguistics (Volume 1: Long Papers). 2022, pp. 3524–
+        tected attributes by iterative nullspace projection”.               3542.
+        In: arXiv preprint arXiv:2004.07667 (2020).
+                                                                    [131]   Lichao Sun et al. “Trustllm: Trustworthiness
+[115]   Ronald Rosenfeld. “Two decades of statistical lan-                  in large language models”. In: arXiv preprint
+        guage modeling: Where do we go from here?” In:                      arXiv:2401.05561 (2024).
+        Proceedings of the IEEE 88.8 (2000), pp. 1270–1278.
+                                                                    [132]   Tianxiang Sun et al. “BERTScore is unfair: On social
+[116]   Rachel Rudinger et al. “Gender bias in corefer-                     bias in language model-based metrics for text gener-
+        ence resolution”. In: arXiv preprint arXiv:1804.09301               ation”. In: arXiv preprint arXiv:2210.07626 (2022).
+        (2018).
+                                                                    [133]   Tristan Thrush et al. “Winoground: Probing vision
+[117]   Anastasiia V Sadybekov and Vsevolod Katritch.                       and language models for visio-linguistic composition-
+        “Computational approaches streamlining drug dis-                    ality”. In: Proceedings of the IEEE/CVF Conference
+        covery”. In: Nature 616.7958 (2023), pp. 673–685.                   on Computer Vision and Pattern Recognition. 2022,
+[118]   Julian Salazar et al. “Masked language model scor-                  pp. 5238–5248.
+        ing”. In: arXiv preprint arXiv:1910.14659 (2019).           [134]   Huan Tian et al. “Image fairness in deep learning:
+[119]   Pedro Saleiro et al. “Aequitas: A bias and fairness                 problems, models, and challenges”. In: Neural Com-
+        audit toolkit”. In: arXiv preprint arXiv:1811.05577                 puting and Applications 34.15 (2022), pp. 12875–
+        (2018).                                                             12893.
+[120]   Victor Sanh et al. “Multitask prompted training             [135]   Ewoenam Kwaku Tokpo and Toon Calders.
+        enables zero-shot task generalization”. In: arXiv                   “Text style transfer for bias mitigation using
+        preprint arXiv:2110.08207 (2021).                                   masked language modeling”. In: arXiv preprint
+[121]   Maarten Sap et al. “The risk of racial bias in hate                 arXiv:2201.08643 (2022).
+        speech detection”. In: Proceedings of the 57th annual       [136]   Hugo Touvron et al. “Llama: Open and efficient
+        meeting of the association for computational linguis-               foundation language models”. In: arXiv preprint
+        tics. 2019, pp. 1668–1678.                                          arXiv:2302.13971 (2023).
+[122]   Beatrice Savoldi et al. “Test Suites Task: Evalua-          [137]   Eva Vanmassenhove, Chris Emmery, and Dimi-
+        tion of Gender Fairness in MT with MuST-SHE and                     tar Shterionov. “NeuTral Rewriter: A Rule-Based
+        INES”. In: arXiv preprint arXiv:2310.19345 (2023).                  and Neural Approach to Automatic Rewriting into
+[123]   Ashish Shah et al. “FinAID, A Financial Advisor Ap-                 Gender-Neutral Alternatives”. In: arXiv preprint
+        plication using AI”. In: ().                                        arXiv:2109.06105 (2021).
+
+
+
+
+46                                                    Volume 26, Issue 1                                     SIGKDD Explorations
+[138]   Ashish Vaswani et al. “Attention is all you need”. In:       [153]   Zichong Wang et al. “Mitigating multisource biases
+        Advances in neural information processing systems                    in graph neural networks via real counterfactual sam-
+        30 (2017).                                                           ples”. In: 2023 IEEE International Conference on
+[139]   Pranav Narayanan Venkit et al. “Nationality                          Data Mining (ICDM). IEEE. 2023, pp. 638–647.
+        bias in text generation”. In: arXiv preprint                 [154]   Zichong Wang et al. “Preventing Discriminatory
+        arXiv:2302.02463 (2023).                                             Decision-making in Evolving Data Streams”. In: Pro-
+[140]   Sahil Verma and Julia Rubin. “Fairness definitions                   ceedings of the 2023 ACM Conference on Fairness,
+        explained”. In: Proceedings of the international work-               Accountability, and Transparency (FAccT). 2023.
+        shop on software fairness. 2018, pp. 1–7.                    [155]   Zichong Wang et al. “Towards fair machine learning
+[141]   Yixin Wan et al. “” kelly is a warm person, joseph is a              software: Understanding and addressing model bias
+        role model”: Gender biases in llm-generated reference                through counterfactual thinking”. In: arXiv preprint
+        letters”. In: arXiv preprint arXiv:2310.09219 (2023).                arXiv:2302.08018 (2023).
+[142]   Yuxuan Wan et al. “Biasasker: Measuring the bias in          [156]   Kellie Webster et al. “Measuring and reducing gen-
+        conversational ai system”. In: Proceedings of the 31st               dered correlations in pre-trained models”. In: arXiv
+        ACM Joint European Software Engineering Confer-                      preprint arXiv:2010.06032 (2020).
+        ence and Symposium on the Foundations of Software            [157]   Kellie Webster et al. “Mind the GAP: A balanced cor-
+        Engineering. 2023, pp. 515–527.                                      pus of gendered ambiguous pronouns”. In: Transac-
+[143]   Alex Wang et al. “Superglue: A stickier bench-                       tions of the Association for Computational Linguis-
+        mark for general-purpose language understanding                      tics 6 (2018), pp. 605–617.
+        systems”. In: Advances in neural information process-        [158]   Sang Michael Xie et al. “Doremi: Optimizing data
+        ing systems 32 (2019).                                               mixtures speeds up language model pretraining”. In:
+[144]   Benyou Wang et al. “Pre-trained language models in                   Advances in Neural Information Processing Systems
+        biomedical domain: A systematic survey”. In: ACM                     36 (2024).
+        Computing Surveys 56.3 (2023), pp. 1–52.                     [159]   Ke Yang et al. “Adept: A debiasing prompt frame-
+[145]   Boxin Wang et al. “Exploring the limits of domain-                   work”. In: Proceedings of the AAAI Conference on
+        adaptive training for detoxifying large-scale language               Artificial Intelligence. Vol. 37. 9. 2023, pp. 10780–
+        models”. In: Advances in Neural Information Pro-                     10788.
+        cessing Systems 35 (2022), pp. 35811–35824.                  [160]   Binwei Yao et al. “Empowering LLM-based ma-
+[146]   Haoyu Wang et al. “Are Large Language Models Re-                     chine translation with cultural awareness”. In: arXiv
+        ally Robust to Word-Level Perturbations?” In: arXiv                  preprint arXiv:2305.14328 (2023).
+        preprint arXiv:2309.11166 (2023).                            [161]   Yunzhi Yao et al. “Editing large language models:
+[147]   Sheng Wang et al. “Chatcad: Interactive computer-                    Problems, methods, and opportunities”. In: arXiv
+        aided diagnosis on medical image using large lan-                    preprint arXiv:2305.13172 (2023).
+        guage models”. In: arXiv preprint arXiv:2302.07257           [162]   Shamim Yazdani et al. “A Comprehensive Survey of
+        (2023).                                                              Image and Video Generative AI: Recent Advances,
+[148]   Wenxuan Wang et al. “All languages matter: On                        Variants, and Applications”. In: (2024).
+        the multilingual safety of large language models”. In:       [163]   Zhipeng Yin, Zichong Wang, and Wenbin Zhang.
+        arXiv preprint arXiv:2310.00905 (2023).                              “Improving Fairness in Machine Learning Software
+[149]   Zhao Wang, Kai Shu, and Aron Culotta. “En-                           via Counterfactual Fairness Thinking”. In: Proceed-
+        hancing model robustness and fairness with causal-                   ings of the 2024 IEEE/ACM 46th International Con-
+        ity: A regularization approach”. In: arXiv preprint                  ference on Software Engineering: Companion Pro-
+        arXiv:2110.00911 (2021).                                             ceedings. 2024, pp. 420–421.
+[150]   Zichong Wang et al. “Advancing Graph Counterfac-             [164]   Vithya Yogarajan et al. “Tackling Bias in Pre-
+        tual Fairness through Fair Representation Learning”.                 trained Language Models: Current Trends and
+        In: Joint European Conference on Machine Learning                    Under-represented Societies”. In: arXiv preprint
+        and Knowledge Discovery in Databases. Springer Na-                   arXiv:2312.01509 (2023).
+        ture Switzerland. 2024.                                      [165]   Charles Yu et al. “Unlearning bias in language mod-
+[151]   Zichong Wang et al. “FG2 AN: Fairness-Aware                          els by partitioning gradients”. In: Findings of the As-
+        Graph Generative Adversarial Networks”. In: Joint                    sociation for Computational Linguistics: ACL 2023.
+        European Conference on Machine Learning and                          2023, pp. 6032–6048.
+        Knowledge Discovery in Databases. Springer Nature            [166]   Fangyi Yu, Lee Quartey, and Frank Schilder. “Legal
+        Switzerland. 2023, pp. 259–275.                                      prompting: Teaching a language model to think like a
+[152]   Zichong Wang et al. “Individual Fairness with Group                  lawyer”. In: arXiv preprint arXiv:2212.01326 (2022).
+        Awareness under Uncertainty”. In: Joint European             [167]   Abdelrahman Zayed et al. “Deep learning on a
+        Conference on Machine Learning and Knowledge                         healthy data diet: Finding important examples for
+        Discovery in Databases. Springer Nature Switzer-                     fairness”. In: Proceedings of the AAAI Conference on
+        land. 2024.                                                          Artificial Intelligence. Vol. 37. 12. 2023, pp. 14593–
+                                                                             14601.
+
+
+
+
+SIGKDD Explorations                                    Volume 26, Issue 1                                                       47
+[168]   Abdelrahman Zayed et al. “Should we attend more
+        or less? modulating attention for fairness”. In: arXiv
+        preprint arXiv:2305.13088 (2023).
+[169]   Aohan Zeng et al. “Glm-130b: An open bilingual pre-
+        trained model”. In: arXiv preprint arXiv:2210.02414
+        (2022).
+[170]   Wenbin Zhang et al. “Individual Fairness under Un-
+        certainty”. In: 26th European Conference on Artifi-
+        cial Intelligence. 2023, pp. 3042–3049.
+[171]   Jiaxu Zhao et al. “Chbias: Bias evaluation and mit-
+        igation of chinese conversational language models”.
+        In: arXiv preprint arXiv:2305.11262 (2023).
+[172]   Jieyu Zhao et al. “Gender bias in contextualized word
+        embeddings”. In: arXiv preprint arXiv:1904.03310
+        (2019).
+[173]   Jieyu Zhao et al. “Gender bias in coreference resolu-
+        tion: Evaluation and debiasing methods”. In: arXiv
+        preprint arXiv:1804.06876 (2018).
+[174]   Fan Zhou et al. “Causal-debias: Unifying debiasing
+        in pretrained language models and fine-tuning via
+        causal invariant learning”. In: Proceedings of the 61st
+        Annual Meeting of the Association for Computational
+        Linguistics (Volume 1: Long Papers). 2023, pp. 4227–
+        4241.
+[175]   Ran Zmigrod et al. “Counterfactual data augmen-
+        tation for mitigating gender stereotypes in lan-
+        guages with rich morphology”. In: arXiv preprint
+        arXiv:1906.04571 (2019).
+
+
+
+
+48                                                     Volume 26, Issue 1   SIGKDD Explorations
+
