@@ -1,61 +1,72 @@
 \chapter{基于代价感知与最小编辑约束的偏见回复定向重写方法}
 
-\section{问题分析与方法框架}
+\section{问题定义与方法框架}
 
 \subsection{偏见回复定向重写问题定义}
 
-设第三章输出的高置信偏见回复为 $y$。本章在此基础上进一步构造候选偏见片段集合
+在完成第三章的偏见识别后，本章进一步关注如下输出级校正问题。根据第三章输出的被判定为高置信偏见的原始回复 $y$，本章首先通过差异对齐与局部风险分析，得到候选偏见片段集合
 \begin{equation}
-P(y) = \{p_1, p_2, \ldots, p_m\}.
+\mathcal{P}(y)=\{p_1,p_2,\dots,p_m\}
 \end{equation}
 
-对于每个片段 $p_i$，定义其偏见风险强度 $b_i \in [0,1]$、判定置信度 $c_i \in [0,1]$ 和编辑代价 $e_i \geq 0$。片段校正优先级 $R(p_i)$ 综合上述三个因素计算得出，具体计算方式在第四章中给出。
+本章希望在不修改被测模型参数和训练过程的前提下，对回复中的高风险表达实施最小幅度改写，得到校正后回复 $\tilde{y}$。与直接拒答、整句重写不同，本章方法强调在保留原始任务语义、事实信息的基础上，对真正承载偏见的局部片段进行定向修正。
 
-偏见校正任务的目标是：在内容约束、风格约束和长度结构约束下，生成校正后回复 $\tilde{y}$，使得 $\tilde{y}$ 相比 $y$ 的偏见表达得到降低，同时尽可能保持原始回复的内容信息、语义连贯性和任务可用性。形式上，该目标可以表述为
+从形式上看，偏见回复校正的目标可表述为一个多目标约束优化问题。记候选校正结果为 $\hat{y}$，则有
 \begin{equation}
-\tilde{y} = \arg\min_{\hat{y}} \; \mathrm{Bias}(\hat{y}) + \lambda \cdot \mathrm{Edit}(y, \hat{y})
-\quad
-\text{s.t.} \;
-\mathrm{Quality}(\hat{y}) \geq \theta,
+\tilde{y}=
+\arg\max_{\hat{y}}
+\begin{aligned}[t]
+&\mu_1 \Delta \mathrm{Fair}(\hat{y},y)
++\mu_2 \mathrm{Preserve}(\hat{y},y)
++\mu_3 \mathrm{Coherence}(\hat{y}) \\
+&-\mu_4 \mathrm{EditCost}(\hat{y},y)
+-\mu_5 \mathrm{Risk}_{\mathrm{new}}(\hat{y})
+\end{aligned}
 \end{equation}
-其中 $\mathrm{Bias}(\hat{y})$ 度量校正后回复的偏见程度，$\mathrm{Edit}(y, \hat{y})$ 度量与原始回复的改动幅度，$\lambda$ 为平衡系数，$\mathrm{Quality}(\hat{y}) \geq \theta$ 为质量约束条件。具体指标定义在第四章和第五章中进一步说明。
+
+其中 $\Delta \mathrm{Fair}(\hat{y},y)$ 表示公平性改善幅度，$\mathrm{Preserve}(\hat{y},y)$ 表示信息保留程度，$\mathrm{Coherence}(\hat{y})$ 表示整体语义连贯性，$\mathrm{EditCost}(\hat{y},y)$ 表示改写幅度或编辑代价，$\mathrm{Risk}_{\mathrm{new}}(\hat{y})$ 表示改写后新增风险。该式表明，理想的校正结果应当在尽量降低偏见风险的同时，维持原始回复的主体内容和任务可用性，并将不必要的改动控制在较小范围内。
+
+进一步地，为防止校正过程通过大规模删减、事实篡改的方式实现偏见伪消除，本章要求候选结果满足如下基本约束
+\begin{equation}
+\mathrm{FactKeep}(\hat{y},y)\ge \tau_f
+\end{equation}
+\begin{equation}
+\mathrm{Utility}(\hat{y})\ge \tau_u
+\end{equation}
+\begin{equation}
+\mathrm{ER}(y,\hat{y})\le \epsilon
+\end{equation}
+
+其中 $\mathrm{FactKeep}(\hat{y},y)$ 表示关键事实与约束条件的保留程度，$\mathrm{Utility}(\hat{y})$ 表示回答对用户任务的有效性，$\mathrm{ER}(y,\hat{y})$ 表示文本的改动编辑率，$\tau_f$、$\tau_u$ 和 $\epsilon$ 分别为相应阈值。
+
 
 \subsection{输出级偏见校正的核心目标}
 
-第三章已经从黑盒输入输出行为出发识别了高置信偏见回复，并给出了可用于后续分析的反事实差异证据。然而，仅完成偏见识别并不能真正解决模型输出中的不公平问题。在实际部署场景中，更重要的是在不修改模型参数和训练过程的前提下，对已经生成的偏见回复进行有效、稳定且可控的校正。
+第三章已经从黑盒输入输出行为出发识别了高置信偏见回复，并给出了样本级偏见判定结果。然而，仅完成偏见识别并不能真正解决模型输出中的不公平问题。在实际部署场景中，更重要的是在不修改模型参数和训练过程的前提下，对已经生成的偏见回复进行有效、稳定且可控的校正。
 
-与直接拒答或整体重写不同，本文的目标并不是用一条完全不同的新回复替代原始输出，也不是通过删除主要信息来回避公平性问题，而是在尽量保持原始任务信息和表达结构的前提下，仅对真正承载偏见风险的局部片段进行必要改写。因此，本章的核心目标可概括为：针对高置信偏见回复，构建一种面向局部高风险片段的定向重写方法，在降低偏见表达的同时尽量保持原始回复的内容信息、语义连贯性和任务可用性。
+本文关注以下三方面设计目标
+\begin{enumerate}[itemsep=0pt, topsep=2pt, parsep=0pt]
+    \item 局部可控性：系统应尽量将修改集中在偏见风险最集中的片段，而不对整条回复做无差别改动。
+    \item 事实与语义保持：校正过程不能为了追求表面公平而删除关键事实、扭曲原意或弱化任务结论。
+    \item 过程可回退性：由于黑盒模型生成具有随机性和不稳定性，重写过程需要具备失败检测和分级回退机制，以避免一次不良修改破坏整条回复质量。
+\end{enumerate}
+
+针对高置信偏见回复，构建一种面向局部高风险片段的定向重写方法，在降低偏见表达的同时尽量保持原始回复的内容信息、语义连贯性和任务可用性。
 
 \subsection{本章方法总体框架}
 
-本章方法的整体框架如图~\ref{fig:chap4-framework}所示，主要包括四个阶段。首先，在第三章输出的高置信偏见回复及其差异证据基础上，进一步进行句子级和短语级精细切分，构造候选偏见片段并确定真正需要修改的高风险片段。其次，综合片段偏见风险强度、判定置信度和编辑代价构建校正优先级，对多个候选片段进行排序。然后，在内容保持、风格一致和长度可控等约束下执行最小编辑重写，对高优先级风险片段实施局部改写。最后，通过一致性校验模块评估重写结果是否在公平性改善、信息保留和新风险控制之间达到要求，并据此决定是否接受当前校正结果。
+本章方法的整体框架如图~\ref{fig:chap4-framework}所示，主要包括四个阶段。首先，在第三章输出的高置信偏见回复基础上，进一步通过句子级和短语级差异对齐检测候选偏见片段，并确定真正需要修改的高风险片段。其次，综合片段偏见风险强度、判定置信度和编辑代价构建校正优先级，对多个候选片段进行排序。然后，在内容保持、风格一致和长度可控等约束下执行最小编辑重写，对高优先级风险片段实施局部改写。最后，通过一致性校验模块评估重写结果是否在公平性改善、信息保留和新风险控制之间达到要求，并据此决定是否接受当前校正结果。
 
-设第三章确认的高置信偏见回复为 $y$。本文首先基于原始回复、反事实回复及验证证据构造候选偏见片段集合 $P(y)$，并对其进行进一步精化，得到高风险片段集合。随后，分别计算各片段的偏见强度、判定置信度和编辑代价，并据此获得片段级校正优先级。根据优先级，从高风险片段开始依次执行局部重写操作，得到中间回复或最终校正回复 $\tilde{y}$。每次重写后，均对结果进行信息保留、语义连贯性和新风险引入等方面的校验；若校验通过，则接受当前结果，否则回退并降低修改强度或停止进一步改写。通过这一设计，本文实现了从“识别偏见”到“定向修正偏见”的闭环处理。
 
 \section{高风险偏见片段精确定位}
 
-\noindent 在第三章完成样本级偏见识别之后，第四章进一步需要回答“偏见具体集中在哪些文本位置”这一问题。为此，本文在高置信偏见回复及其反事实差异证据基础上，对原始回复和反事实回复进行差异对齐、候选片段抽取和风险归因，将样本级偏见判定细化为可操作的局部风险定位结果。
-
-\subsection{回复差异对齐方法}
-
-设原始回复为 $y$，反事实回复为 $y_i^{cf}$。本文首先在句子级别对两者进行分割和对齐，确定发生显著变化的句子单元。随后，在高差异句内部进一步进行短语级或span级对齐，以定位具体变化位置。由于本文的目标是为后续重写提供最小必要修改范围，因此差异对齐不仅要找出“变了哪些句子”，还要尽量缩小到“真正承载偏见风险的局部表达”。
-
-\subsection{候选偏见片段抽取}
-
-基于差异对齐结果，本文从原始回复中抽取候选偏见片段集合
-\begin{equation}
-P(y)=\{p_1,p_2,\ldots,p_m\},
-\end{equation}
-其中每个片段 $p_i$ 可以是一个句子、一个短语，或一个连续的文本span。
-
-候选片段的抽取并非简单依赖字符级差异，而是综合以下三类信号。第一，原始回复与反事实回复在该位置是否存在显著内容变化；第二，该位置是否对应显式规则或验证结果中归因为偏见来源的部分；第三，该位置是否包含明显的有害表达、刻板表述或不合理差别性建议。只有同时满足差异显著性与偏见相关性的片段，才被保留为候选偏见片段。
-
 \subsection{句子级风险切分}
 
-为了进一步减少不必要的修改范围，本文首先在句子级别对原始回复进行切分。设原始回复 $y$ 经句子分割后得到
+为了减少不必要的修改范围，本文首先在句子级别对原始回复进行切分。设原始回复 $y$ 经句子分割后得到
 \begin{equation}
-Y=\{s_1,s_2,\ldots,s_l\},
+Y=\{s_1,s_2,\ldots,s_l\}
 \end{equation}
+
 其中 $s_j$ 表示第 $j$ 个句子单元。
 
 随后，根据候选片段落点和局部差异强度，将各句子划分为高风险句、低风险句和无风险句三类。若某句包含多个高风险片段，或整体差异强度显著高于阈值，则该句被标记为高风险句，优先进入后续短语级定位与重写流程。句子级切分的目的在于先粗略缩小修改范围，避免对整段回复进行不必要的整体处理。
@@ -64,136 +75,145 @@ Y=\{s_1,s_2,\ldots,s_l\},
 
 在高风险句内部，本文进一步执行短语级和span级风险定位，以找到真正承载偏见风险的局部表达。设高风险句中的精细片段集合为
 \begin{equation}
-P^*(y)=\{p_1^*,p_2^*,\ldots,p_r^*\},
+P^*(y)=\{p_1^*,p_2^*,\ldots,p_r^*\}
 \end{equation}
+
 其中每个 $p_i^*$ 对应一个局部风险span。
 
-短语级定位主要关注以下几类文本区域：一是原始回复与反事实回复差异最集中的局部表达；二是显式包含群体标签、归纳判断或评价性描述的短语；三是可能导致不公平建议和差别对待的结论性表达。通过将句子级切分与局部span定位结合，本文将重写目标从“风险回复”进一步缩小到“风险片段”，为最小编辑校正提供了精细粒度基础。
+短语级定位主要关注以下几类文本区域：一是原始回复与反事实回复差异最集中的局部表达；二是显式包含群体标签、归纳判断或评价性描述的短语；三是可能导致不公平建议和差别对待的结论性表达。
 
-\subsection{片段级风险标注与归因方法}
 
-为了确保被定位的片段确实与偏见风险有关，而非一般性语义差异，本文综合三类证据进行归因。第一类证据来自原始回复与反事实回复之间的对齐差异，即某一局部表达是否在敏感属性变化后发生了显著改变。第二类证据来自第三章双阶段验证的判断结果，即该局部片段是否被验证模块识别为偏见来源或关键差异位置。第三类证据来自有害表达分析，即该局部表达是否包含贬损、刻板归纳或不合理倾向性建议。
+\section{偏见片段风险建模与优先级排序}
 
-在此基础上，本文进一步为每个候选偏见片段定义片段级风险强度。设片段 $p_i$ 的风险强度为 $B(p_i)$，则可表示为
+\subsection{片段级偏见风险强度}
+
+对4.2节精确定位得到的每个候选片段 $p_i$，定义其偏见风险强度为
 \begin{equation}
-B(p_i)=\eta_1 \Delta_{align}(p_i)+\eta_2 \Delta_{judge}(p_i)+\eta_3 \Delta_{harm}(p_i),
+B(p_i)=
+\alpha_1 \Delta_{\mathrm{cf}}(p_i)+
+\alpha_2 J_{\mathrm{fair}}(p_i)+
+\alpha_3 T(p_i)-
+\alpha_4 F(p_i)
 \end{equation}
-其中 $\Delta_{align}(p_i)$ 表示该片段在原始回复与反事实回复之间的对齐差异强度，$\Delta_{judge}(p_i)$ 表示验证模块对该片段的偏见归因强度，$\Delta_{harm}(p_i)$ 表示该片段在有害表达维度上的风险程度，$\eta_1,\eta_2,\eta_3$ 为相应权重。
 
-通过综合上述证据，本文能够在候选片段中进一步筛出真正应被优先处理的高风险片段，而不是对所有差异位置进行等同处理。这种归因方式使得后续重写更具有针对性和可解释性。
+其中 $\alpha_1,\alpha_2,\alpha_3,\alpha_4 \ge 0$ 为权重参数。式中各分量分别具有不同作用。$\Delta_{\mathrm{cf}}(p_i)$ 反映该片段在敏感属性替换前后的响应差异是否显著；$J_{\mathrm{fair}}(p_i)$ 反映其是否表现出不当群体绑定、刻板归因或差别对待风险；$T(p_i)$ 则进一步强调侮辱性、有害性和攻击性表达；$F(p_i)$ 作为负项引入，用于抑制那些虽涉及群体差异、但具有较强事实支持的片段。
+
+该式继承了第三章“公平性与事实性联合约束”的思想，即不是所有含有群体差异的表述都应被同等强度地处理。只有当片段同时表现出明显的反事实差异、公平性风险和有害倾向，且缺乏充分事实支持时，其风险强度才会显著升高。
+
+\subsection{重写代价建模}
+
+为了体现最小编辑原则，本文进一步引入重写代价项
+\begin{equation}
+E(p_i)=\gamma_1 L(p_i)+\gamma_2 K(p_i)+\gamma_3 S(p_i)
+\end{equation}
+
+其中 $L(p_i)$ 为长度代价，$K(p_i)$ 为关键信息代价，$S(p_i)$ 为结构位置代价，设置原因如下：
+
+\begin{enumerate}[itemsep=0pt, topsep=2pt, parsep=0pt]
+    \item 长度代价 $L(p_i)$：当片段较长时，片段中可能涉及多个语义成分、句法结构和上下文依赖，因而修改风险更高。
+    \item 关键信息代价 $K(p_i)$：当片段中包含数字、实体、时间、地点、职业资格、疾病名称、条件触发词、引证依据或任务核心结论时，误改代价应显著提高。
+    \item 结构位置代价 $S(p_i)$：当片段位于结论句、推荐句、任务核心判断句时，不应该被轻率修改。
+\end{enumerate}
+
+这里的 $K(p_i)$ 主要用于刻画某一片段与原始回复中关键信息的耦合程度。如果片段包含关键实体、数值、条件约束或事实性结论，则系统应将其视为高代价修改对象。添加这一项可以引导模型优先修改偏见性的修饰语、泛化归因和不当评价，避免直接改动事实内容本身。
+
+\subsection{综合校正优先级}
+
+综合片段级偏见风险与重写代价，定义校正优先级为
+\begin{equation}
+R(p_i)=\lambda_1 B(p_i)-\lambda_2 E(p_i)
+\end{equation}
+
+其中 $\lambda_1,\lambda_2\ge 0$。该式体现了本文的核心排序逻辑：风险越高的片段应当越优先处理；反之编辑代价越高、越容易损坏原始语义结构的片段，其优先级应放低。
+
+按 $R(p_i)$ 从高到低对所有片段排序，得到优先级序列
+\begin{equation}
+\Pi(y)=\left[p_{(1)},p_{(2)},\dots,p_{(m)}\right]
+\end{equation}
 
 \begin{algorithm}[htbp]
-\caption{偏见片段定位与风险标注算法}
-\label{alg:span_localization}
-\begin{algorithmic}[1]
-\Require 原始回复 $y$；反事实回复集合 $Y^{cf}(x)$；差异归因函数 $\Delta_{align}(\cdot)$；验证归因函数 $\Delta_{judge}(\cdot)$；有害性函数 $\Delta_{harm}(\cdot)$
-\Ensure 候选偏见片段集合 $P(y)$ 及其风险强度 $\{B(p_i)\}$
-\State 初始化候选片段集合 $P(y)\gets \emptyset$
-\State 将原始回复 $y$ 切分为句子集合 $\{s_1,s_2,\ldots,s_l\}$
-\For{每个句子 $s_j$}
-    \State 计算 $s_j$ 与各反事实回复中对齐句子的差异强度
-    \If{$s_j$ 的差异强度高于句子级阈值}
-        \State 在 $s_j$ 内进行短语级或span级差异对齐
-        \For{每个候选片段 $p_i$}
-            \If{$p_i$ 与验证归因结果一致}
-                \State 计算片段风险强度
-                \[
-                B(p_i)\gets \eta_1\Delta_{align}(p_i)+\eta_2\Delta_{judge}(p_i)+\eta_3\Delta_{harm}(p_i)
-                \]
-                \State $P(y)\gets P(y)\cup \{p_i\}$
-            \EndIf
-        \EndFor
-    \EndIf
-\EndFor
-\State \Return $(P(y),\{B(p_i)\})$
+\caption{偏见片段风险建模与优先级排序算法}
+\label{alg:bias_priority_ranking}
+\begin{algorithmic}[0]
+\State Input: 候选偏见片段集合 $\mathcal{P}(y)$
+\State Input: 风险强度权重 $\alpha_1,\alpha_2,\alpha_3,\alpha_4$
+\State Input: 代价权重 $\gamma_1,\gamma_2,\gamma_3$
+\State Input: 优先级权重 $\lambda_1,\lambda_2$
+\State Output: 优先级序列 $\Pi(y)$
+\State Output: 最终编辑单元集合 $\mathcal{P}^{*}(y)$
 \end{algorithmic}
-\end{algorithm}
-
-为将样本级偏见判定进一步转化为可用于局部校正的结构化输入，本文将片段级风险定位过程归纳为算法~\ref{alg:span_localization}。该算法在句子级和span级两层粒度上对原始回复与反事实回复进行差异对齐，并结合验证归因结果为候选片段赋予风险强度。
-
-\section{基于代价感知的校正优先级建模}
-
-\subsection{偏见强度建模}
-
-设高风险片段为 $p_i$，其偏见强度记为 $b_i$。该量主要由本节给出的片段级风险标注结果继承而来，用于表示该片段本身所承载的不公平风险程度。若一个片段在多组反事实比较中均表现出明显差异，且其差异集中体现为贬损性表达、差别性建议或刻板印象，则其偏见强度应当较高。
-
-偏见强度反映的是“这段文本本身有多危险”，是片段优先级建模中的核心基础量。若忽略这一量，重写过程将难以区分核心风险片段和边缘风险片段，从而可能造成修改资源分配不合理的问题。
-
-\subsection{判定置信度建模}
-
-除了偏见强度之外，片段是否值得优先修改还取决于模型对该片段确实存在偏见的确定程度。为此，本文定义片段判定置信度 $c_i\in[0,1]$，用于衡量“我们有多确定这个片段需要被修改”。
-
-片段判定置信度主要来源于第三章双阶段验证模块的判断结果，以及局部归因时对该片段的支持证据强度。若一个片段不仅在差异检测中显著，而且在规则约束与显式推理阶段被明确归因为偏见来源，则其判定置信度应较高。相反，若某片段虽有一定差异，但其归因依据较弱或可能存在任务语义上的合理解释，则其判定置信度应适当降低。
-
-\subsection{编辑代价建模}
-
-在实际校正过程中，并非所有高风险片段都适合被优先修改。某些片段虽然风险较高，但其与主要事实信息、任务结论或回复结构紧密耦合，贸然修改可能导致语义漂移或信息损失。因此，本文进一步定义编辑代价 $e_i$ 来衡量修改片段 $p_i$ 可能带来的代价。
-
-编辑代价可由以下几个因素共同刻画：片段长度、片段在句子中的中心程度、其与主要语义内容的耦合强度，以及修改后可能造成的事实信息破坏风险。编辑代价的引入使得校正过程不再只是“风险越高越先改”，而是同时考虑“是否值得改”“改动成本是否可接受”等实际问题。
-
-\subsection{校正优先级评分函数设计}
-
-综合偏见强度、判定置信度和编辑代价，本文将片段 $p_i$ 的校正优先级定义为
-\begin{equation}
-R(p_i)=\lambda_1 b_i+\lambda_2 c_i-\lambda_3 e_i,
-\end{equation}
-其中 $\lambda_1,\lambda_2,\lambda_3$ 为权重系数，分别控制风险强度、置信度和编辑代价对优先级的影响。
-
-基于优先级分数，本文对所有高风险片段进行排序，得到
-\begin{equation}
-P^{rank}(y)=\mathrm{Sort}\bigl(\{p_i\},R(p_i)\bigr),
-\end{equation}
-其中排序结果从高到低反映各片段应被优先处理的顺序。
-
-该设计的意义在于，将偏见校正从简单的“检测后立即整体改写”转化为“风险驱动、代价约束的局部定向干预”过程。通过这种方式，本文能够更合理地分配修改资源，使重写优先集中于风险高、判断稳、改动成本相对可控的片段。
-
-\begin{algorithm}[htbp]
-\caption{基于代价感知的风险片段优先级排序算法}
-\label{alg:priority_ranking}
 \begin{algorithmic}[1]
-\Require 候选偏见片段集合 $P(y)=\{p_1,p_2,\ldots,p_m\}$；片段偏见强度 $\{b_i\}$；判定置信度 $\{c_i\}$；编辑代价 $\{e_i\}$；权重 $\lambda_1,\lambda_2,\lambda_3$
-\Ensure 按优先级排序后的片段集合 $P^{rank}(y)$
-\For{每个片段 $p_i\in P(y)$}
-    \State 计算优先级得分
+\State 初始化优先级列表 $\Pi(y)\gets [\,]$
+\For{每个候选片段 $p_i\in \mathcal{P}(y)$}
+    \State 计算风险强度
     \[
-    R(p_i)\gets \lambda_1 b_i+\lambda_2 c_i-\lambda_3 e_i
+    B(p_i)\gets \alpha_1 \Delta_{\mathrm{cf}}(p_i)+\alpha_2 J_{\mathrm{fair}}(p_i)+\alpha_3 T(p_i)-\alpha_4 F(p_i)
+    \]
+    \State 计算重写代价
+    \[
+    E(p_i)\gets \gamma_1 L(p_i)+\gamma_2 K(p_i)+\gamma_3 S(p_i)
+    \]
+    \State 计算校正优先级
+    \[
+    R(p_i)\gets \lambda_1 B(p_i)-\lambda_2 E(p_i)
     \]
 \EndFor
-\State 按 $R(p_i)$ 从高到低排序，得到
-\[
-P^{rank}(y)\gets \mathrm{Sort}\bigl(\{p_i\},R(p_i)\bigr)
-\]
-\State \Return $P^{rank}(y)$
+\State 按 $R(p_i)$ 从高到低对 $\mathcal{P}(y)$ 排序，得到优先级序列 $\Pi(y)$
+\State 初始化最终编辑单元集合 $\mathcal{P}^{*}(y)\gets \emptyset$
+\For{每个片段 $p_i\in \Pi(y)$}
+    \If{$p_i$ 与当前集合中的某一片段存在边界交叠或语义依赖}
+        \State 执行合并或上下文扩展，得到联合编辑单元 $p_i^{*}$
+    \Else
+        \State $p_i^{*}\gets p_i$
+    \EndIf
+    \If{$p_i^{*}\notin \mathcal{P}^{*}(y)$}
+        \State $\mathcal{P}^{*}(y)\gets \mathcal{P}^{*}(y)\cup \{p_i^{*}\}$
+    \EndIf
+\EndFor
+\State \Return $(\Pi(y),\mathcal{P}^{*}(y))$
 \end{algorithmic}
 \end{algorithm}
 
-综合片段偏见强度、判定置信度和编辑代价，本文将风险片段的排序过程总结为算法~\ref{alg:priority_ranking}。该算法使校正过程能够优先处理风险高、判断稳且修改成本相对可控的片段，从而提高后续局部重写的针对性与效率。
+\subsection{片段冲突处理与最终重写单元确定}
 
-\section{最小编辑约束重写方法}
+排序完成后，仍可能出现两个高优先级片段互相重叠、共用上下文或位于同一因果链中的情况。若对其分别独立改写，容易产生重复修改、顺序依赖冲突或前后文不一致。因此，本文进一步执行片段冲突处理。
+
+若两个片段 $p_i$ 和 $p_j$ 在边界上存在交叠，或它们依赖同一个判断谓词、群体指称或结论性短语，则将其合并为联合编辑单元；若两个片段虽然不重叠，但位于同一句中且其中一个片段的解释依赖另一个片段，则优先以优先级更高的片段为中心，扩展出带上下文的可编辑窗口。经过冲突消解后，按照优先级序列 $\Pi(y)$ 得到最终用于局部重写的编辑单元集合，仍记为 $\mathcal{P}^{*}(y)$。
+
+上述风险建模与排序过程可归纳为算法~\ref{alg:bias_priority_ranking}。该算法先为候选片段计算风险强度与重写代价，再生成优先级序列，并在此基础上完成冲突消解与最终编辑单元确定。
+
+
+\section{基于最小编辑约束的偏见重写方法}
 
 \subsection{重写目标函数设计}
 
-在完成高风险片段排序之后，本文进一步需要回答“如何改”的问题。设原始回复为 $y$，候选校正结果为 $\hat{y}$，则本文将偏见回复的重写目标表示为以下约束优化问题：
+在完成高风险片段排序之后，本文进一步需要回答“如何改”的问题。设原始回复为 $y$，候选校正结果为 $\hat{y}$，则局部重写的目标仍遵循本章开头提出的多目标约束优化思想，即在降低偏见风险的同时，尽可能保持原始回复中的任务语义、事实信息和整体连贯性。具体地，可写为
 \begin{equation}
-\min_{\hat{y}}
-\ \eta_1 \mathrm{Risk}(\hat{y})
-+\eta_2 \mathrm{Edit}(y,\hat{y})
--\eta_3 \mathrm{Preserve}(y,\hat{y}),
+\hat{y}=
+\arg\max_{\bar{y}}
+\begin{aligned}[t]
+&\mu_1 \Delta \mathrm{Fair}(\bar{y},y)
++\mu_2 \mathrm{Preserve}(\bar{y},y)
++\mu_3 \mathrm{Coherence}(\bar{y}) \\
+&-\mu_4 \mathrm{EditCost}(\bar{y},y)
+-\mu_5 \mathrm{Risk}_{\mathrm{new}}(\bar{y})
+\end{aligned}
 \end{equation}
+
 并满足如下约束
 \begin{equation}
-\mathrm{Sim}(y,\hat{y})\ge \delta_1,
+\mathrm{FactKeep}(\bar{y},y)\ge \tau_f,
 \end{equation}
 \begin{equation}
-\mathrm{Utility}(\hat{y})\ge \delta_2,
+\mathrm{Utility}(\bar{y})\ge \tau_u,
 \end{equation}
 \begin{equation}
-\mathrm{Harm}(\hat{y})\le \delta_3.
+\mathrm{ER}(y,\bar{y})\le \epsilon.
 \end{equation}
 
-其中，$\mathrm{Risk}(\hat{y})$ 表示重写后回复的剩余偏见风险，$\mathrm{Edit}(y,\hat{y})$ 表示相对于原始回复的改动成本，$\mathrm{Preserve}(y,\hat{y})$ 表示对原始信息和语义的保留程度。约束中的 $\mathrm{Sim}$、$\mathrm{Utility}$ 和 $\mathrm{Harm}$ 分别对应语义相似性、任务有用性和有害性控制要求。
+其中 $\Delta \mathrm{Fair}(\bar{y},y)$ 表示相对于原始回复的公平性改善幅度，$\mathrm{Preserve}(\bar{y},y)$ 表示关键信息保留程度，$\mathrm{Coherence}(\bar{y})$ 表示整体语义连贯性，$\mathrm{EditCost}(\bar{y},y)$ 表示重写幅度或编辑代价，$\mathrm{Risk}_{\mathrm{new}}(\bar{y})$ 表示校正后新增风险。$\mathrm{FactKeep}(\bar{y},y)$、$\mathrm{Utility}(\bar{y})$ 和 $\mathrm{ER}(y,\bar{y})$ 则分别从事实保持、任务可用性和最小编辑约束三个角度限制重写结果。
 
-这一目标函数体现了本文方法的基本思想：在尽可能降低偏见风险的同时，以尽量小的改动保持原始回复的主体内容和使用价值。
+上述目标函数表明，本文并不追求通过整体重写来获得表面上的公平性提升，而是希望在可接受的编辑预算内，仅对真正高风险的局部表达进行必要修改。
 
 \subsection{内容保持约束}
 
@@ -201,11 +221,46 @@ P^{rank}(y)\gets \mathrm{Sort}\bigl(\{p_i\},R(p_i)\bigr)
 
 在具体实现中，本文不允许通过大规模删除信息、完全替换回答主旨或转化为纯拒答模板的方式“规避偏见”。只有真正承载偏见风险的局部表达才应成为主要修改对象，其他内容应尽可能保留。通过这样的设计，本文方法与简单的安全拒答策略区别开来，更适合实际部署场景中对“回答质量”有要求的应用任务。
 
-\subsection{风格一致约束}
 
-除了内容保持之外，重写结果还应尽量保持原始回复的语言风格和表达方式一致。具体而言，本文要求校正后回复在语气、礼貌程度、叙述方式和句式风格上与原始回复基本协调，避免出现由于局部重写而造成的整体文风突变。
+\begin{algorithm}[htbp]
+\caption{基于最小编辑约束的局部定向重写算法}
+\label{alg:local_rewriting}
+\begin{algorithmic}[0]
+\State Input: 原始回复 $y$
+\State Input: 按优先级排序的最终编辑单元集合 $\mathcal{P}^{*}(y)$
+\State Input: 编辑预算上限 $B_{edit}$
+\State Input: 偏见风险阈值 $\tau_r$
+\State Input: 一致性校验阈值 $\theta_1,\theta_2$
+\State Input: 目标重写函数 $\mathcal{G}(\cdot)$
+\State Output: 校正后回复 $\tilde{y}$
+\end{algorithmic}
+\begin{algorithmic}[1]
+\State 初始化当前回复 $\tilde{y}\gets y$
+\State 初始化累计编辑代价 $cost\gets 0$
+\For{每个编辑单元 $p_i^{*}\in \mathcal{P}^{*}(y)$}
+    \If{$cost \ge B_{edit}$}
+        \State \textbf{break}
+    \EndIf
+    \If{$\mathrm{Risk}(\tilde{y})\le \tau_r$}
+        \State \textbf{break}
+    \EndIf
+    \State 在当前回复 $\tilde{y}$ 中定位编辑单元 $p_i^{*}$
+    \State 生成局部候选重写结果 $\hat{p}_i\gets \mathcal{G}(p_i^{*} \mid \text{内容约束，风格约束，长度约束})$
+    \State 用 $\hat{p}_i$ 替换 $\tilde{y}$ 中对应位置，得到候选回复 $\hat{y}$
+    \State 计算信息保留度 $Q_{info}\gets \mathrm{Preserve}(y,\hat{y})$
+    \State 计算语义连贯性 $Q_{coh}\gets \mathrm{Coherence}(\hat{y})$
+    \State 检查新风险引入 $Q_{risk}\gets \mathrm{CheckNewRisk}(\hat{y})$
+    \If{$Q_{info}\ge \theta_1$ \textbf{and} $Q_{coh}\ge \theta_2$ \textbf{and} $Q_{risk}=0$}
+        \State 接受当前改写：$\tilde{y}\gets \hat{y}$
+        \State 更新累计编辑代价 $cost\gets cost + \mathrm{EditCost}(\hat{p}_i,p_i^{*})$
+    \Else
+        \State 拒绝当前改写，保留原回复 $\tilde{y}$
+    \EndIf
+\EndFor
+\State \Return $\tilde{y}$
+\end{algorithmic}
+\end{algorithm}
 
-风格一致约束的意义在于，偏见校正并不应让回复失去原有的自然性和连贯性。若局部改写结果在风格上与上下文明显不一致，即使公平性有所提升，也会降低用户对输出结果的接受度和信任感。
 
 \subsection{长度与结构约束}
 
@@ -219,41 +274,13 @@ P^{rank}(y)\gets \mathrm{Sort}\bigl(\{p_i\},R(p_i)\bigr)
 
 \subsection{局部定向重写流程}
 
-在具体重写过程中，本文并不对整条回复进行一次性改写，而是依据优先级排序结果，对高风险片段依次实施局部定向重写。其基本流程如下。首先，从排序后的片段集合 $P^{rank}(y)$ 中选择当前优先级最高的片段。其次，在内容、风格和长度约束下生成该片段的候选改写结果，并将其替换回原始回复对应位置，得到新的中间回复。然后，对新的中间回复执行一致性校验。若校验通过，则保留当前改写；否则回退到上一步结果，并降低修改强度或跳过该片段。上述过程重复进行，直至达到以下任一条件：所有高优先级片段均已处理，整体偏见风险降至阈值以下，或达到预设编辑预算上限。
+在具体重写过程中，本文并不对整条回复进行一次性改写，而是依据前一节得到的最终编辑单元集合 $\mathcal{P}^{*}(y)$，按照优先级顺序依次实施局部定向重写。其基本流程如下。首先，从 $\mathcal{P}^{*}(y)$ 中选择当前优先级最高的编辑单元。其次，在内容、风格和长度约束下生成该编辑单元的候选改写结果，并将其替换回当前回复对应位置，得到新的候选回复。然后，对候选回复执行一致性校验。若校验通过，则保留当前改写；否则回退到上一步合法版本，并降低修改强度或跳过该编辑单元。上述过程重复进行，直至达到以下任一条件：所有高优先级编辑单元均已处理，整体偏见风险降至阈值以下，或达到预设编辑预算上限。
 
 这种“分片段、可回退、可停止”的局部重写机制，使本文方法能够将改动集中在真正必要的位置，尽可能避免整体重写带来的语义漂移和信息损失。
 
+在完成风险片段排序与冲突处理之后，本文进一步将局部偏见校正过程总结为算法~\ref{alg:local_rewriting}。该算法以按优先级排列的最终编辑单元集合为输入，在最小编辑约束下逐段执行局部重写，并通过一致性校验机制决定是否接受当前改写结果，从而实现“分片段、可回退、可停止”的定向校正流程。
 
-\begin{algorithm}[htbp]
-\caption{基于最小编辑约束的局部定向重写算法}
-\label{alg:local_rewriting}
-\begin{algorithmic}[1]
-\Require 原始回复 $y$；排序后的高风险片段集合 $P^{rank}(y)$；编辑预算上限 $B_{edit}$；一致性校验阈值 $\theta_1,\theta_2$；目标重写函数 $\mathcal{G}(\cdot)$
-\Ensure 校正后回复 $\tilde{y}$
-\State 初始化当前回复 $\tilde{y}\gets y$
-\State 初始化累计编辑代价 $cost\gets 0$
-\For{每个片段 $p_i\in P^{rank}(y)$}
-    \If{$cost > B_{edit}$}
-        \State \textbf{break}
-    \EndIf
-    \State 在当前回复 $\tilde{y}$ 中定位片段 $p_i$
-    \State 生成局部候选重写结果 $\hat{p}_i\gets \mathcal{G}(p_i \mid \text{内容约束，风格约束，长度约束})$
-    \State 用 $\hat{p}_i$ 替换 $\tilde{y}$ 中对应片段，得到候选回复 $\hat{y}$
-    \State 计算信息保留度 $Q_{info}\gets \mathrm{Preserve}(\tilde{y},\hat{y})$
-    \State 计算语义连贯性 $Q_{coh}\gets \mathrm{Coherence}(\hat{y})$
-    \State 检查新风险引入 $Q_{risk}\gets \mathrm{CheckNewRisk}(\hat{y})$
-    \If{$Q_{info}\ge \theta_1$ \textbf{and} $Q_{coh}\ge \theta_2$ \textbf{and} $Q_{risk}=0$}
-        \State 接受当前改写：$\tilde{y}\gets \hat{y}$
-        \State 更新累计编辑代价 $cost\gets cost + \mathrm{EditDist}(p_i,\hat{p}_i)$
-    \Else
-        \State 拒绝当前改写，保留原回复 $\tilde{y}$
-    \EndIf
-\EndFor
-\State \Return $\tilde{y}$
-\end{algorithmic}
-\end{algorithm}
 
-在完成风险片段排序之后，本文进一步将局部偏见校正过程总结为算法~\ref{alg:local_rewriting}。该算法以排序后的高风险片段为输入，在最小编辑约束下逐段执行局部重写，并通过一致性校验机制决定是否接受当前改写结果，从而实现“分片段、可回退、可停止”的定向校正流程。
 \section{重写结果一致性校验机制}
 
 \subsection{信息保留度校验}

@@ -4,380 +4,258 @@
 
 \subsection{实验目标}
 
-本章的核心目标是对第三章提出的偏见识别方法和第四章提出的偏见回复定向重写方法进行系统验证。具体而言，本文希望通过实验回答以下四个问题。
+本章围绕第三章提出的偏见识别方法和第四章提出的偏见重写方法展开实验验证。结合 \texttt{实验.pdf} 中给出的实验流程，本文将实验划分为两个相互衔接的部分：其一是基于反事实替代检测的大语言模型输出偏见识别实验，其二是面向已识别偏见回复的最小编辑重写实验。
 
-第一，基于反事实构造与双阶段验证的识别方法，是否能够在黑盒条件下有效识别受敏感属性影响的偏见回复，并实现较好的识别准确性。
+其中，研究内容一重点回答如下问题：对于仅在敏感属性上发生变化的原始输入与反事实输入，本文方法是否能够更稳定地识别出存在显著情感差异和毒性差异的偏见回复；在此基础上，二阶段验证机制是否能够进一步提升高置信偏见样本的纯度。研究内容二则重点考察：在保持原始回复主体语义尽量不变的前提下，第四章提出的局部定向重写方法能否有效降低回复中的偏见风险，并缩小其与反事实回复之间的差异。
 
-第二，双阶段验证机制是否能够在保持识别敏感性的同时降低误判和过度公平判断。
+\subsection{实验对象与运行环境}
 
-第三，基于代价感知与最小编辑约束的定向重写方法，是否能够在降低偏见风险的同时保持原始回复的信息内容、语义连贯性和任务有用性。
+本文主实验以 Qwen2.5-3B-Instruct 作为目标生成模型，统一完成原始回复生成、反事实回复生成以及偏见回复重写。对于偏见识别结果的辅助分析，本文额外调用 Llama Guard 3 Response Classifier 和 GPT-4 作为外部评审器，用于从安全性和公平性判断两个角度对候选偏见样本进行交叉验证。
 
-第四，本文构建的综合评价框架，是否能够从公平性、文本质量和效率代价三个层面对黑盒大语言模型输出后处理方法进行统一评估。
+实验硬件环境、软件依赖版本、推理参数与 API 调用配置可按实际运行情况补充。建议在定稿时统一填写 GPU 型号、显存、Python 版本、Transformers 版本、生成温度、最大输出长度及外部接口调用参数，以保证实验复现条件完整。
 
-围绕上述目标，本文通过对比实验、消融实验、参数敏感性分析和案例分析，对所提方法的有效性和适用性进行系统验证。
+\subsection{数据集与样本构造}
 
-\subsection{实验平台与实现环境}
+根据参考实验流程，研究内容一主要使用 BOLD 和 RedditBias 两个数据集。BOLD 数据集中选取 Gender、Political ideologies 和 Race 三个敏感属性维度，每个维度各抽取 1000 条样本；RedditBias 数据集中选取 Gender、Race 和 Religion 三个敏感属性维度，每个维度各抽取 1000 条样本。对于每条原始样本，本文均构造与之语义主干保持一致、仅替换敏感属性的反事实输入，以获得原始回复与反事实回复的配对样本。
 
-本文实验在统一的软件与硬件环境下完成。硬件环境包括 \textbf{[填写GPU型号]}、\textbf{[填写显存]}、\textbf{[填写CPU型号]} 和 \textbf{[填写内存]}。软件环境包括 Python \textbf{[填写版本]}、PyTorch \textbf{[填写版本]}、Transformers \textbf{[填写版本]} 以及相关推理和评测依赖库。
-
-对于闭源模型的调用，本文采用统一的API接口配置，并对提示模板、温度参数、最大生成长度和重试策略进行统一控制，以保证原始输入与反事实输入之间的可比性。对于本地开源模型，本文在同一推理环境下完成回复生成、片段重写和一致性校验，从而减少环境差异对实验结果的影响。
-
-\subsection{目标模型与参数设置}
-
-为兼顾模型可控性、开源可复现性和真实黑盒适用性，本文选取三类大语言模型作为目标模型。
-
-第一类为本地部署的开源指令模型，如Qwen-2.5-14B-Instruct，用于完成主实验中的大规模推理与方法调试。第二类为英文开源模型，如Llama-3.1-8B-Instruct，用于验证方法在主流英文生成模型上的适用性\cite{grattafiori2024llama3}。第三类为闭源黑盒模型，如GPT-4o，用于验证本文方法在真实API场景中的可部署性\cite{openai2023gpt4}。
-
-在识别阶段，原始输入和反事实输入采用一致的系统提示和解码设置。对于本地模型，温度参数设为 \textbf{[填写]}，最大生成长度设为 \textbf{[填写]}。对于闭源模型，若API允许，本文采用固定温度和统一系统提示进行调用。重写阶段在保证可答性前提下，采用与识别阶段一致或近似一致的推理参数，以减少额外变量对结果的影响。
-
-\subsection{数据集设置}
-
-1. BBQ数据集
-
-BBQ数据集旨在评测问答模型在涉及不同社会群体时的偏见表现，是当前大语言模型公平性研究中使用较广的基准之一\cite{DBLP:conf/acl/ParrishCNPPTHB22}。该数据集中的样本通常包含背景描述、问题和候选答案，适合用于测试模型在身份变化条件下的回答倾向。
-
-为了适应本文的开放式生成研究场景，本文将BBQ中的原始样本统一转换为生成式提示模板，使目标模型输出自由文本回复，而不直接进行多项选择。对于每个原始样本，本文进一步依据其中出现的敏感属性构造反事实prompt，从而比较模型在原始身份条件和替代身份条件下的回复差异。该设置能够较好地支持第三章中的反事实偏见识别实验。
-
-2. CEB数据集介绍与任务构造
-
-CEB数据集面向大语言模型公平性的组合式评测，通过更丰富的任务设置和属性组合考察模型在复杂场景中的不公平行为\cite{wang2024ceb}。与BBQ相比，CEB更强调多维属性条件和多样化任务形式，对模型的公平性鲁棒性提出了更高要求。
-
-在本文中，CEB主要用于验证所提方法在复杂公平性场景下的适用性。本文同样将其统一改写为生成式提示形式，并在保持任务语义稳定的前提下执行敏感属性替换，以构造原始输入和反事实输入对。通过引入CEB，本文能够在更复杂的语义与属性组合条件下检验方法的稳定性。
-
-3. ToxiGen数据集介绍与任务构造
-
-ToxiGen数据集主要用于分析模型在仇恨言论、隐式毒性表达和群体攻击性表述方面的生成行为\cite{hartvigsen2022toxigen}。相较于BBQ和CEB，ToxiGen更适合作为有害表达差异分析和隐式偏见补充验证的数据来源。
-
-本文将ToxiGen作为补充验证数据集，用于观察第三章所提识别方法在隐式偏见和带有群体攻击性表达场景中的表现，并为第四章中重写后新风险引入检测提供更具挑战性的测试样本。
-
-\subsection{生成式提示模板设计}
-
-为了统一不同数据集上的实验协议，本文将原始样本统一转换为生成式提示模板。设原始样本为 $z$，则其生成式提示记为
-\begin{equation}
-x=\mathrm{Prompt}(z),
-\end{equation}
-其中 $\mathrm{Prompt}(\cdot)$ 表示将原始样本转化为开放式生成输入的映射函数。
-
-统一后的生成式提示模板包括三部分：任务背景、用户问题以及明确的回答要求。对于偏见识别实验，本文分别构造原始prompt和反事实prompt，并比较模型回复差异。对于偏见校正实验，本文以模型在原始prompt上的输出为基础，输入第四章方法执行局部重写和一致性校验。
-
-表~\ref{tab:dataset-template} 给出了本文中不同数据集的任务构造方式。
-
-\begin{table}[htbp]
-\centering
-\caption{数据集与生成式任务构造方式}
-\label{tab:dataset-template}
-\begin{tabular}{llll}
-\toprule
-数据集 & 原始任务形式 & 生成式提示构造方式 & 主要用途 \\
-\midrule
-BBQ & 问答选择 & 背景 + 问题 + 开放回答 & 主识别实验 \\
-CEB & 组合式公平性评测 & 场景描述 + 问题 + 开放回答 & 通用性验证 \\
-ToxiGen & 有害/偏见表达生成 & 群体相关输入 + 开放生成 & 补充验证 \\
-\bottomrule
-\end{tabular}
+\begin{table}[hbt]
+  \centering
+  \caption{实验数据集与样本构成}
+  \label{tab:exp-dataset}
+  \begin{tabularx}{\textwidth}{>{\centering\arraybackslash}m{2.2cm}>{\centering\arraybackslash}m{4.6cm}>{\centering\arraybackslash}m{2.2cm}X}
+  \toprule
+    数据集 & 敏感属性维度 & 每类样本数 & 用途 \\
+  \midrule
+    BOLD \cite{DBLP:conf/fat/DhamalaSKKPCG21} & Gender、Political ideologies、Race & 1000 & 用于研究内容一中的主偏见识别实验 \\
+    RedditBias \cite{DBLP:conf/acl/BarikeriLVG20} & Gender、Race、Religion & 1000 & 用于研究内容一中的补充偏见识别实验与跨域验证 \\
+  \bottomrule
+  \end{tabularx}
 \end{table}
 
-\section{对比方法设置}
+研究内容二以前一部分实验中被判定为偏见触发的原始回复作为重写对象，并保持对应的反事实回复作为参照项。这样可以直接比较重写前后的情感差值和毒性差值变化，进而分析偏见重写策略的有效性。
 
-\subsection{偏见识别阶段对比方法}
+\subsection{实验总体流程}
 
-为了验证第三章提出的方法在偏见识别任务上的有效性，本文选择以下几类方法作为对比基线。
+本章实验总体遵循“先识别、后重写”的顺序。首先，对原始输入与反事实输入分别生成回复，使用第三章方法对原始回复是否属于偏见触发样本进行判定，并与 HONEST、TWBias 等方法进行比较。随后，对被判定为偏见触发的原始回复执行第四章提出的局部定向重写，并与 Self-Debiasing、Moral Self-Correction 等方法进行对比，观察重写后回复在情感差值、毒性差值以及编辑幅度上的变化。
 
-第一类是现有有害内容或安全检测模型，如LlamaGuard类方法。这类方法通常从通用安全检测角度识别风险内容，但并非专门针对反事实偏见识别设计。
+\begin{figure}[hbt]
+  \centering
+  \fbox{\parbox[c][4.2cm][c]{0.86\textwidth}{\centering
+  图表插入提示：在此插入“第五章实验总体流程图”。\\
+  建议展示“数据集采样与反事实构造 $\rightarrow$ 偏见识别对比实验 $\rightarrow$ 偏见样本筛选 $\rightarrow$ 偏见重写对比实验”的完整流程。}}
+  \caption{第五章实验总体流程占位图}
+  \label{fig:chap5-pipeline}
+\end{figure}
 
-第二类是基于大语言模型判断器的方法，即直接将原始回复输入judge模型，由其判断输出是否包含偏见。
+\section{研究内容一：基于反事实替代检测的偏见识别实验}
 
-第三类是规则式方法，即依据预定义的偏见词表、刻板印象模板和群体表达模式对回复进行规则匹配和判定。
+\subsection{实验任务与评价思路}
 
-第四类是本文方法的中间版本，包括“仅使用反事实差异检测”和“反事实差异检测 + 双阶段验证”两个版本。通过与完整方法比较，可进一步分析双阶段验证模块的作用。
+研究内容一的目标是识别那些在仅改变敏感属性后出现显著输出差异的原始回复。对于第 $i$ 个样本，记原始回复为 $y_i$，反事实回复为 $y_i^{cf}$。本文采用与参考实验流程一致的两类外部指标来衡量两者差异。
 
-设识别阶段的对比方法集合为
+第一类指标为情感差值。采用 VADER 对回复进行情感打分，记情感函数为 $V(\cdot)$，其输出范围为 $[-1,1]$。则原始回复与反事实回复之间的情感差值定义为
 \begin{equation}
-\mathcal{M}_{det}=\{M_1,M_2,\ldots,M_u\},
-\end{equation}
-其中包含现有基线和本文各版本方法。
-
-\subsection{偏见校正阶段对比方法}
-
-为了验证第四章提出的方法在偏见校正任务上的有效性，本文选择以下几类方法作为对比基线。
-
-第一类是Raw LLM，即直接采用原始输出，不进行任何校正。第二类是Direct Refusal，即在检测到风险后直接输出拒答或安全模板。第三类是Self-Debias类方法，通过推理期自去偏机制控制生成\cite{gallegos2025selfdebias}。第四类是Constitutional AI Rewriting类方法，通过原则引导进行整体重写\cite{bai2022constitutional}。第五类是Full Rewrite，即对整条回复进行全量改写。第六类是Random Priority Rewrite，即随机选择高风险片段进行改写，而不使用本文的代价感知优先级策略。第七类是本文提出的完整方法。
-
-设校正阶段的对比方法集合为
-\begin{equation}
-\mathcal{M}_{rew}=\{N_1,N_2,\ldots,N_v\}.
+\Delta_{sent}^{(i)}=\left|V(y_i)-V(y_i^{cf})\right|.
 \end{equation}
 
-上述对比设置覆盖了“不处理”“整体规避”“整体重写”“局部但无优先级控制”和“局部定向重写”几种典型方法路径，能够更全面地反映本文方法的相对优势。
+第二类指标为毒性差值。采用在 toxic comment 数据集上微调的 BERT 分类器判断回复是否命中 toxic、severe toxic、threat、obscene、insult 或 identity attack 等标签。记毒性判别函数为 $T(\cdot)\in\{0,1\}$，则有
+\begin{equation}
+\Delta_{tox}^{(i)}=\left|T(y_i)-T(y_i^{cf})\right|.
+\end{equation}
 
-\subsection{消融实验设置}
+对于任一检测方法 $m$，设其判定的偏见样本集合为 $\mathcal{B}_m$，则该方法在所选样本上的平均情感差值和平均毒性差值分别为
+\begin{equation}
+\overline{\Delta}_{sent}(m)=\frac{1}{|\mathcal{B}_m|}\sum_{i\in\mathcal{B}_m}\Delta_{sent}^{(i)},
+\end{equation}
+\begin{equation}
+\overline{\Delta}_{tox}(m)=\frac{1}{|\mathcal{B}_m|}\sum_{i\in\mathcal{B}_m}\Delta_{tox}^{(i)}.
+\end{equation}
 
-为了进一步验证各关键模块的实际贡献，本文设置以下五组消融实验。
+若一种检测方法能够更准确地筛出真正受敏感属性影响的偏见样本，则其对应的 $\overline{\Delta}_{sent}(m)$ 和 $\overline{\Delta}_{tox}(m)$ 应更高。除上述差值指标外，本文还借助外部评审器考察检测结果的一致性。记 Llama Guard 3 对样本 $i$ 的判断结果为 $J_{LG}^{(i)}\in\{0,1\}$，记 GPT-4 对样本 $i$ 的偏见判断结果为 $J_{GPT}^{(i)}\in\{0,1\}$，则两种外部评审一致率可分别定义为
+\begin{equation}
+AGR_{LG}(m)=\frac{1}{|\mathcal{B}_m|}\sum_{i\in\mathcal{B}_m}J_{LG}^{(i)},
+\end{equation}
+\begin{equation}
+AGR_{GPT}(m)=\frac{1}{|\mathcal{B}_m|}\sum_{i\in\mathcal{B}_m}J_{GPT}^{(i)}.
+\end{equation}
 
-第一，去掉双阶段验证机制，仅保留反事实差异检测，用于分析验证模块对误判控制的作用。第二，去掉优先级排序，直接对全部候选片段进行等权处理，用于分析代价感知排序的作用。第三，去掉最小编辑约束，改为宽松重写，用于分析最小编辑设计对语义保持能力的影响。第四，去掉一致性校验，直接接受所有重写结果，用于分析一致性控制对结果稳健性的作用。第五，改变偏见敏感性评分中各维度权重，用于分析评分模型对最终识别结果的敏感性。
+\subsection{对比方法与外部评审设置}
 
-\section{评价框架与评价指标}
+根据参考实验流程，研究内容一主要比较三类检测方法：其一是基于伤害性词典与模板匹配的 HONEST \cite{DBLP:conf/naacl/NozzaBH21}；其二是以困惑度差异为核心思想的 TWBias；其三是本文提出的“反事实差异检测 + 二阶段验证”方法。此外，Llama Guard 3 Response Classifier 和 GPT-4 不直接作为主检测方法参与比较，而是作为统一的外部评审器，对不同方法输出的候选偏见样本进行一致性分析。
 
-\subsection{综合评价框架设计}
-
-针对现有研究中评价维度分散、难以系统反映黑盒大语言模型输出后处理实际效果的问题，本文构建了一个面向黑盒大语言模型输出后处理的综合评价框架。该框架从公平性、文本质量和效率代价三个层面，对偏见识别与偏见校正两个阶段进行统一评估。
-
-其中，公平性层面关注偏见识别准确性、偏见消除能力和反事实一致性改善情况；文本质量层面关注信息保留度、语义连贯性、流畅度和任务有用性；效率代价层面关注编辑距离比例、推理延迟以及单位修改代价下的公平性收益。通过这一框架，本文能够对不同方法在黑盒输出后处理场景中的表现进行更系统和更可比的分析。
-
-为便于与摘要中的核心结果指标对应，表~\ref{tab:metric-map} 给出了摘要指标与本章实验位置之间的映射关系。
-
-\begin{table}[htbp]
-\centering
-\caption{摘要核心指标与实验章节映射关系}
-\label{tab:metric-map}
-\begin{tabular}{lll}
-\toprule
-指标 & 含义 & 对应实验位置 \\
-\midrule
-Acc, Pre, Rec, F1 & 偏见识别效果 & 5.5.1 \\
-$\Delta FP$ & 误判率下降幅度 & 5.5.2 \\
-BER & 偏见消除率 & 5.6.1 \\
-FCI & 反事实一致性提升幅度 & 5.6.1 \\
-Preserve & 信息保留度 & 5.6.1, 5.6.2 \\
-Sim/BERTScore & 语义相似度 & 5.6.1, 5.6.2 \\
-Fluency & 流畅性评分 & 5.6.1 \\
-EditRatio & 编辑距离比例 & 5.6.1, 5.6.2 \\
-Latency & 平均推理延迟 & 5.6.1 \\
-\bottomrule
-\end{tabular}
+\begin{table}[hbt]
+  \centering
+  \caption{研究内容一中的检测方法与外部评审设置}
+  \label{tab:det-methods}
+  \begin{tabularx}{\textwidth}{>{\centering\arraybackslash}m{3.2cm}>{\centering\arraybackslash}m{3.2cm}>{\centering\arraybackslash}m{2.8cm}X}
+  \toprule
+    方法/评审器 & 输入对象 & 输出形式 & 作用说明 \\
+  \midrule
+    HONEST & 原始回复文本 & 词典匹配分数/是否命中 & 作为规则与词典路线的代表基线 \\
+    TWBias & 原始回复与反事实回复 & 差异分数/二值判断 & 作为基于概率或困惑度差异思路的对比方法 \\
+    本文方法 & 原始输入、反事实输入及对应回复 & 候选偏见分数与最终判定 & 作为第三章方法的完整实现 \\
+    Llama Guard 3 & 原始回复文本 & safe/unsafe 判断 & 用于从内容安全角度辅助分析候选偏见样本 \\
+    GPT-4 外部评审 & prompt 对、回复对 & JSON 判断结果 & 用于从公平性与事实性角度进行外部复核 \\
+  \bottomrule
+  \end{tabularx}
 \end{table}
 
-\subsection{公平性评价指标}
+其中，GPT-4 外部评审严格按照参考实验流程中的提示词执行，重点判断原始输入与反事实输入是否仅在敏感属性上不同、原始回复与反事实回复是否存在显著差异、该差异是否能够被事实或任务条件解释，以及最终是否应判定为偏见触发。该设置可与第三章提出的二阶段验证思想形成对应。
 
-在偏见识别阶段，本文采用准确率、精确率、召回率和F1值作为基本评价指标。设真正例、真负例、假正例和假负例分别为 $TP$、$TN$、$FP$ 和 $FN$，则有
-\begin{equation}
-Acc=\frac{TP+TN}{TP+TN+FP+FN},
-\end{equation}
-\begin{equation}
-Pre=\frac{TP}{TP+FP},
-\end{equation}
-\begin{equation}
-Rec=\frac{TP}{TP+FN},
-\end{equation}
-\begin{equation}
-F1=\frac{2\cdot Pre \cdot Rec}{Pre+Rec}.
-\end{equation}
+\subsection{偏见识别结果比较}
 
-在偏见校正阶段，本文进一步采用偏见消除率（Bias Elimination Rate, BER）衡量校正前后偏见回复数量的变化。设校正前被判定为偏见的回复数为 $N_b$，其中经校正后不再被判定为偏见的回复数为 $N_c$，则有
-\begin{equation}
-BER=\frac{N_c}{N_b}.
-\end{equation}
+表~\ref{tab:det-main-new} 用于汇总不同检测方法在研究内容一中的整体表现。表中“检出样本数”表示方法最终判定为偏见触发的样本数量；$\overline{\Delta}_{sent}$ 和 $\overline{\Delta}_{tox}$ 分别表示这些样本上的平均情感差值和平均毒性差值；$AGR_{LG}$ 与 $AGR_{GPT}$ 分别表示对应样本被 Llama Guard 3 判为 unsafe、被 GPT-4 判为 biased 的比例。
 
-为了反映校正后原始回复与反事实回复之间一致性的改善程度，本文定义反事实一致性提升幅度（Counterfactual Consistency Improvement, FCI）为
-\begin{equation}
-FCI=\frac{1}{N}\sum_{i=1}^{N}\left[CC(\tilde{y}_i)-CC(y_i)\right],
-\end{equation}
-其中 $CC(\cdot)$ 表示回复在反事实比较下的一致性评分，$\tilde{y}_i$ 表示校正后回复，$y_i$ 表示校正前回复。$FCI$ 越大，说明校正后回复对敏感属性变化的非合理响应越少。
-
-\subsection{文本质量评价指标}
-
-为了评估偏见校正是否破坏了原始回复质量，本文从信息保留、语义相似、流畅度和任务有用性四个方面进行评价。
-
-首先，信息保留度用于衡量校正后回复是否保留了原始回复中的关键内容。设原始回复为 $y$，校正后回复为 $\tilde{y}$，则信息保留度记为
-\begin{equation}
-Preserve=\frac{1}{N}\sum_{i=1}^{N}\mathrm{Preserve}(y_i,\tilde{y}_i).
-\end{equation}
-
-其次，语义相似度采用BERTScore或语义嵌入相似度进行衡量\cite{zhang2020bertscore,reimers2019sentencebert}，其定义为
-\begin{equation}
-Sim=\frac{1}{N}\sum_{i=1}^{N}\mathrm{Sim}(y_i,\tilde{y}_i).
-\end{equation}
-
-再次，流畅度反映回复在语法、自然性和可读性方面的表现，可由大模型判断器或人工标注给出平均评分，记为
-\begin{equation}
-Fluency=\frac{1}{N}\sum_{i=1}^{N}\mathrm{FluencyScore}(\tilde{y}_i).
-\end{equation}
-
-最后，任务有用性用于衡量重写后回复是否仍有效回答了用户问题，记为
-\begin{equation}
-Utility=\frac{1}{N}\sum_{i=1}^{N}\mathrm{UtilityScore}(\tilde{y}_i).
-\end{equation}
-
-通过同时引入上述指标，本文避免将偏见校正简单理解为“风险越低越好”，而是强调校正方法应在公平性与回复质量之间保持平衡。
-
-\subsection{效率与代价评价指标}
-
-考虑到黑盒输出后处理方法在实际部署中还受到调用成本与时延的限制，本文进一步引入编辑距离比例、平均推理延迟和单位代价公平性收益等效率与代价指标。
-
-设编辑距离函数为 $\mathrm{EditDist}(\cdot,\cdot)$，原始回复长度为 $Len(y)$，则编辑距离比例定义为
-\begin{equation}
-EditRatio=\frac{1}{N}\sum_{i=1}^{N}\frac{\mathrm{EditDist}(y_i,\tilde{y}_i)}{Len(y_i)}.
-\end{equation}
-
-平均推理延迟用于衡量从输入到识别和校正全过程的平均耗时，记为
-\begin{equation}
-Latency=\frac{1}{N}\sum_{i=1}^{N} t_i,
-\end{equation}
-其中 $t_i$ 为第 $i$ 个样本的总推理时延。
-
-为了度量在单位编辑代价下获得的公平性收益，本文进一步定义校正效率为
-\begin{equation}
-Eff=\frac{BER}{EditRatio+\epsilon},
-\end{equation}
-其中 $\epsilon$ 为防止分母为零的微小常数。$Eff$ 越大，说明方法在较小编辑代价下获得了更高的偏见消除收益。
-
-\subsection{综合权衡评价方式}
-
-除了单一指标外，本文还采用综合权衡方式比较不同方法在公平性、质量和代价之间的整体表现。设归一化后的公平性得分、质量得分和代价得分分别为 $\widehat{F}$、$\widehat{Q}$ 和 $\widehat{E}$，则综合得分可表示为
-\begin{equation}
-Score=\omega_1 \widehat{F}+\omega_2 \widehat{Q}+\omega_3(1-\widehat{E}),
-\end{equation}
-其中 $\omega_1+\omega_2+\omega_3=1$。
-
-此外，本文还将通过二维平面展示公平性改善与信息保留之间的帕累托前沿，用以分析不同方法在多目标约束下的权衡能力。该部分结果将在第5.6.3节中进一步讨论。
-
-\section{偏见识别实验结果与分析}
-
-\subsection{偏见识别总体效果比较}
-
-表~\ref{tab:det-main} 给出了不同方法在偏见识别任务上的总体效果比较。可以从准确率、精确率、召回率和F1值四个指标对比各方法表现。
-
-\begin{table}[htbp]
-\centering
-\caption{偏见识别阶段总体效果比较}
-\label{tab:det-main}
-\begin{tabular}{lcccc}
-\toprule
-方法 & Accuracy & Precision & Recall & F1 \\
-\midrule
-LlamaGuard & [填写] & [填写] & [填写] & [填写] \\
-GPT-4o Judge & [填写] & [填写] & [填写] & [填写] \\
-Rule-based & [填写] & [填写] & [填写] & [填写] \\
-本文方法（无双阶段验证） & [填写] & [填写] & [填写] & [填写] \\
-本文方法（完整） & \textbf{[填写]} & \textbf{[填写]} & \textbf{[填写]} & \textbf{[填写]} \\
-\bottomrule
-\end{tabular}
+\begin{table}[hbt]
+  \centering
+  \caption{研究内容一中不同偏见检测方法的实验结果}
+  \label{tab:det-main-new}
+  \begin{tabularx}{\textwidth}{>{\centering\arraybackslash}m{2.6cm}>{\centering\arraybackslash}m{2.0cm}>{\centering\arraybackslash}m{2.0cm}>{\centering\arraybackslash}m{2.0cm}>{\centering\arraybackslash}m{2.0cm}>{\centering\arraybackslash}m{2.0cm}}
+  \toprule
+    方法 & 检出样本数 & $\overline{\Delta}_{sent}$ & $\overline{\Delta}_{tox}$ & $AGR_{LG}$ & $AGR_{GPT}$ \\
+  \midrule
+    HONEST & [待填写] & [待填写] & [待填写] & [待填写] & [待填写] \\
+    TWBias & [待填写] & [待填写] & [待填写] & [待填写] & [待填写] \\
+    本文方法 & [待填写] & [待填写] & [待填写] & [待填写] & [待填写] \\
+  \bottomrule
+  \end{tabularx}
 \end{table}
 
-由表~\ref{tab:det-main} 可见，本文完整方法在偏见识别任务上取得了较好的总体效果。其中，Accuracy、Precision、Recall 和 F1 值分别达到 \textbf{[填写]}、\textbf{[填写]}、\textbf{[填写]} 和 \textbf{[填写]}。与最佳基线方法相比，本文方法在F1值上提升了 \textbf{[填写]}，说明反事实差异检测与双阶段验证相结合的方式能够更有效地识别受敏感属性影响的偏见回复。
+待填写实验结果后，本节可重点从两个角度展开分析：其一，不同方法筛出的偏见样本是否确实具有更高的情感差值和毒性差值；其二，本文方法筛出的样本是否更容易获得外部评审器的一致确认。若本文方法在 $\overline{\Delta}_{sent}$、$\overline{\Delta}_{tox}$ 以及 $AGR_{GPT}$ 上同时占优，则说明第三章的反事实检测与验证机制更贴近“由敏感属性变化引起的不合理输出差异”这一偏见定义。
 
-从具体指标看，本文方法在Precision上的提升表明其对误判具有更好的抑制能力，而在Recall上的保持或提升说明其并未因误判控制而显著牺牲检测敏感性。这说明本文方法能够在识别准确性与识别覆盖度之间取得较好的平衡。
+\begin{figure}[hbt]
+  \centering
+  \fbox{\parbox[c][4.0cm][c]{0.84\textwidth}{\centering
+  图表插入提示：在此插入“不同检测方法结果对比图”。\\
+  建议采用分组柱状图，同时展示 $\overline{\Delta}_{sent}$、$\overline{\Delta}_{tox}$、$AGR_{LG}$ 和 $AGR_{GPT}$ 四项指标。}}
+  \caption{研究内容一结果可视化占位图}
+  \label{fig:det-result-placeholder}
+\end{figure}
 
-\subsection{双阶段验证机制有效性分析}
+\subsection{去除二阶段验证的消融分析}
 
-为了分析双阶段验证机制的实际作用，本文进一步比较“仅使用反事实差异检测”和“加入双阶段验证后的完整方法”之间的性能差异，结果如表~\ref{tab:det-stage2} 所示。
+为分析第三章中二阶段验证机制的实际贡献，本文进一步设置“仅使用候选偏见分数进行初筛”和“加入二阶段验证后的完整方法”两种版本进行比较。参考实验流程中的消融设置，本节仍沿用平均情感差值、平均毒性差值以及两类外部评审一致率作为评价指标。
 
-\begin{table}[htbp]
-\centering
-\caption{双阶段验证机制有效性分析}
-\label{tab:det-stage2}
-\begin{tabular}{lcccc}
-\toprule
-方法版本 & Precision & Recall & F1 & False Positive Rate \\
-\midrule
-无双阶段验证 & [填写] & [填写] & [填写] & [填写] \\
-加入双阶段验证 & \textbf{[填写]} & [填写] & \textbf{[填写]} & \textbf{[填写]} \\
-\bottomrule
-\end{tabular}
+\begin{table}[hbt]
+  \centering
+  \caption{去除二阶段验证后的消融实验结果}
+  \label{tab:det-ablation}
+  \begin{tabularx}{\textwidth}{>{\centering\arraybackslash}m{3.0cm}>{\centering\arraybackslash}m{1.8cm}>{\centering\arraybackslash}m{1.8cm}>{\centering\arraybackslash}m{1.8cm}>{\centering\arraybackslash}m{1.8cm}>{\centering\arraybackslash}m{1.8cm}}
+  \toprule
+    方法版本 & 检出样本数 & $\overline{\Delta}_{sent}$ & $\overline{\Delta}_{tox}$ & $AGR_{LG}$ & $AGR_{GPT}$ \\
+  \midrule
+    无二阶段验证 & [待填写] & [待填写] & [待填写] & [待填写] & [待填写] \\
+    完整方法 & [待填写] & [待填写] & [待填写] & [待填写] & [待填写] \\
+  \bottomrule
+  \end{tabularx}
 \end{table}
 
-由表~\ref{tab:det-stage2} 可见，引入双阶段验证后，Precision 和 F1 值均有提升，误判率下降了 \textbf{[填写]}。这表明双阶段验证机制能够有效过滤那些虽然具有较高差异分数、但其实由任务语义变化或生成波动造成的非偏见样本，从而缓解过度公平判断现象。
-
-总体上看，双阶段验证机制并不是简单追求更高召回，而是在保持识别覆盖的同时提高高置信样本的纯度，这一点与本文第三章的设计目标是一致的。
-
-\subsection{不同模型上的识别性能分析}
-
-为验证本文方法的模型通用性，本文进一步在不同目标模型上进行偏见识别实验，结果如表~\ref{tab:det-models} 所示。
-
-\begin{table}[htbp]
-\centering
-\caption{不同目标模型上的偏见识别效果比较}
-\label{tab:det-models}
-\begin{tabular}{lccc}
-\toprule
-目标模型 & Accuracy & F1 & False Positive Rate \\
-\midrule
-Qwen-2.5-14B-Instruct & [填写] & [填写] & [填写] \\
-Llama-3.1-8B-Instruct & [填写] & [填写] & [填写] \\
-GPT-4o & [填写] & [填写] & [填写] \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-实验结果表明，本文方法在开源本地模型和闭源API模型上均取得了稳定表现，说明其核心机制主要依赖输入输出层面的反事实比较与验证，而不是依赖特定模型内部结构。因此，该方法具有较好的黑盒适用性和模型迁移能力。
+待填写结果后，本节应重点观察二阶段验证是否能够减少低质量候选样本进入最终偏见集合，并提升外部评审一致率。如果完整方法在检出样本数适度收缩的同时，$\overline{\Delta}_{sent}$、$\overline{\Delta}_{tox}$ 和 $AGR_{GPT}$ 均有所提高，则可以说明二阶段验证确实增强了高置信偏见样本筛选能力。
 
 \subsection{典型案例分析}
 
-为了直观展示第三章方法的识别过程，本文选取若干典型案例进行分析。对于每个案例，分别展示原始输入、反事实输入、原始回复与反事实回复、偏见敏感性分数以及双阶段验证结果。通过案例分析可以发现，本文方法不仅能够捕获显式群体偏见，也能够识别那些表面措辞温和、但在建议倾向和资源分配上体现差别对待的隐式偏见回复。
+除定量比较外，研究内容一还需要通过具体案例展示第三章方法的识别过程。建议在定稿时选取两类代表性样本：一类是显式负向刻板印象或群体攻击样本，另一类是表面措辞温和但在建议倾向、能力归因或机会分配上体现差别对待的隐式偏见样本。对于每个案例，可依次展示原始输入、反事实输入、原始回复、反事实回复、候选偏见分数、二阶段验证结论以及 GPT-4 的外部评审结果。
 
-图~\ref{fig:case-detect} 可用于展示典型识别案例的对齐与验证结果。
+\begin{figure}[hbt]
+  \centering
+  \fbox{\parbox[c][4.0cm][c]{0.84\textwidth}{\centering
+  图表插入提示：在此插入“偏见识别典型案例图”。\\
+  建议以案例卡片形式展示原始/反事实回复对、检测分数和最终判定。}}
+  \caption{研究内容一典型案例占位图}
+  \label{fig:det-case-placeholder}
+\end{figure}
 
-\section{偏见校正实验结果与分析}
+\section{研究内容二：面向偏见回复的最小编辑重写实验}
 
-\subsection{偏见校正总体效果比较}
+\subsection{重写任务与对比方法}
 
-表~\ref{tab:rew-main} 给出了不同方法在偏见校正任务上的总体效果比较。本文重点从偏见消除率、反事实一致性改善、信息保留度、语义相似度、流畅度、编辑距离比例和平均推理延迟等维度进行对比。
+研究内容二以前一部分实验中由本文完整识别方法筛出的偏见样本为输入，仅对其中的原始回复进行重写，并保留对应的反事实回复作为参照项。按照参考实验流程，本节主要比较以下四种设置：一是 Qwen2.5-3B-Instruct 的原始回复，不进行任何修改；二是 Self-Debiasing \cite{gallegos2025selfdebias}；三是 Moral Self-Correction；四是本文第四章提出的基于最小编辑约束的局部定向重写方法。
 
-\begin{table}[htbp]
-\centering
-\caption{偏见校正阶段总体效果比较}
-\label{tab:rew-main}
-\begin{tabular}{lccccccc}
-\toprule
-方法 & BER & FCI & Preserve & Sim/BERTScore & Fluency & EditRatio & Latency \\
-\midrule
-Raw LLM & [填写] & [填写] & [填写] & [填写] & [填写] & [填写] & [填写] \\
-Direct Refusal & [填写] & [填写] & [填写] & [填写] & [填写] & [填写] & [填写] \\
-Self-Debias & [填写] & [填写] & [填写] & [填写] & [填写] & [填写] & [填写] \\
-Constitutional Rewriting & [填写] & [填写] & [填写] & [填写] & [填写] & [填写] & [填写] \\
-Full Rewrite & [填写] & [填写] & [填写] & [填写] & [填写] & [填写] & [填写] \\
-Random Priority Rewrite & [填写] & [填写] & [填写] & [填写] & [填写] & [填写] & [填写] \\
-本文方法 & \textbf{[填写]} & \textbf{[填写]} & \textbf{[填写]} & \textbf{[填写]} & \textbf{[填写]} & \textbf{[填写]} & [填写] \\
-\bottomrule
-\end{tabular}
+\begin{table}[hbt]
+  \centering
+  \caption{研究内容二中的偏见重写对比方法}
+  \label{tab:rew-methods}
+  \begin{tabularx}{\textwidth}{>{\centering\arraybackslash}m{3.2cm}>{\centering\arraybackslash}m{3.0cm}X}
+  \toprule
+    方法 & 重写对象 & 说明 \\
+  \midrule
+    原始回复 & 不重写 & 作为偏见回复校正前的基线输出 \\
+    Self-Debiasing & 整体回复 & 通过自去偏提示或推理控制降低偏见表达 \\
+    Moral Self-Correction & 整体回复 & 通过道德校正提示引导模型重新生成较安全回复 \\
+    本文方法 & 高风险局部片段 & 依据第四章方法对高风险片段执行最小编辑重写 \\
+  \bottomrule
+  \end{tabularx}
 \end{table}
 
-由表~\ref{tab:rew-main} 可见，本文方法在偏见校正阶段取得了较好的综合表现。具体而言，偏见消除率达到 \textbf{[填写]}，反事实一致性提升 \textbf{[填写]}，信息保留度达到 \textbf{[填写]}，语义相似度达到 \textbf{[填写]}，流畅度评分达到 \textbf{[填写]}，平均编辑距离比例控制在 \textbf{[填写]}。这一结果表明，本文方法不仅能够有效降低偏见风险，而且能够在较小改动范围内保持原始回复的主要信息和自然表达。
+\subsection{评价指标}
 
-与全量重写方法相比，本文方法在BER接近或更高的同时，EditRatio明显更低，说明局部定向重写能够减少不必要的文本修改。与直接拒答相比，本文方法虽然在极端安全性上未必占优，但在信息保留度和任务有用性上具有明显优势，更符合面向真实部署场景的输出后处理需求。
+研究内容二沿用研究内容一中的 VADER 情感分析和 toxic comment BERT 分类器，对重写后的回复进行检测。记原始偏见回复为 $y_i$，其对应的反事实回复为 $y_i^{cf}$，某种重写方法得到的输出为 $\hat{y}_i$。则重写后的情感差值和毒性差值分别定义为
+\begin{equation}
+\Delta_{sent}^{rew(i)}=\left|V(\hat{y}_i)-V(y_i^{cf})\right|,
+\end{equation}
+\begin{equation}
+\Delta_{tox}^{rew(i)}=\left|T(\hat{y}_i)-T(y_i^{cf})\right|.
+\end{equation}
 
-\subsection{最小编辑约束重写效果分析}
+相应地，可定义某一重写方法 $n$ 在全部偏见样本集合 $\mathcal{B}$ 上的平均差值为
+\begin{equation}
+\overline{\Delta}_{sent}^{rew}(n)=\frac{1}{|\mathcal{B}|}\sum_{i\in\mathcal{B}}\Delta_{sent}^{rew(i)},
+\end{equation}
+\begin{equation}
+\overline{\Delta}_{tox}^{rew}(n)=\frac{1}{|\mathcal{B}|}\sum_{i\in\mathcal{B}}\Delta_{tox}^{rew(i)}.
+\end{equation}
 
-为了进一步验证第四章中最小编辑约束设计的作用，本文重点比较不同重写方法在修改幅度与质量保持方面的差异。图~\ref{fig:edit-preserve} 给出了各方法在编辑距离比例和信息保留度上的对比结果。
+此外，为体现第四章“最小编辑”设计的效果，本文补充记录编辑距离比例。记编辑距离函数为 $\mathrm{EditDist}(\cdot,\cdot)$ \cite{levenshtein1966}，则有
+\begin{equation}
+EditRatio(n)=\frac{1}{|\mathcal{B}|}\sum_{i\in\mathcal{B}}\frac{\mathrm{EditDist}(y_i,\hat{y}_i)}{Len(y_i)}.
+\end{equation}
 
-从图中可以看出，整体重写方法虽然能够在一定程度上改善公平性，但往往需要更大幅度修改原始回复，从而导致信息保留度下降。相比之下，本文方法通过风险片段精确定位和优先级排序，将修改范围集中在高风险局部区域，因此在维持较高偏见消除率的同时，将编辑距离比例控制在较低水平。这说明最小编辑约束确实能够提升局部重写策略在文本质量保持方面的表现。
+其中，$\overline{\Delta}_{sent}^{rew}(n)$ 和 $\overline{\Delta}_{tox}^{rew}(n)$ 越低，说明重写后回复与反事实回复之间的差异越小；$EditRatio(n)$ 越低，则说明达到公平性改善所需的修改幅度越小。
 
-\subsection{公平性与文本质量权衡分析}
+\subsection{偏见重写结果比较}
 
-由于偏见校正本质上是一个公平性改善与文本质量保持之间的多目标平衡问题，本文进一步采用帕累托前沿的方式对不同方法进行比较。图~\ref{fig:pareto-fairness-quality} 以偏见消除率为纵轴、信息保留度为横轴，展示了各方法在公平性与质量权衡上的位置关系。
+表~\ref{tab:rew-main-new} 用于展示不同重写方法在研究内容二中的整体实验结果。考虑到本节的核心目标是观察重写后差异是否缩小，故主要比较平均情感差值、平均毒性差值和编辑距离比例三项指标；如有需要，也可在定稿阶段补充重写后回复被毒性分类器直接判为 toxic 的比例。
 
-实验结果表明，本文方法整体位于更优的权衡区域，即在不显著损害文本质量的前提下实现了更高的公平性改善。这说明代价感知优先级排序、最小编辑约束和一致性校验等机制能够协同发挥作用，使校正过程更符合实际应用场景中的多目标要求。
+\begin{table}[hbt]
+  \centering
+  \caption{研究内容二中不同偏见重写方法的实验结果}
+  \label{tab:rew-main-new}
+  \begin{tabularx}{\textwidth}{>{\centering\arraybackslash}m{3.0cm}>{\centering\arraybackslash}m{2.4cm}>{\centering\arraybackslash}m{2.4cm}>{\centering\arraybackslash}m{2.4cm}}
+  \toprule
+    方法 & $\overline{\Delta}_{sent}^{rew}$ & $\overline{\Delta}_{tox}^{rew}$ & $EditRatio$ \\
+  \midrule
+    原始回复 & [待填写] & [待填写] & [待填写] \\
+    Self-Debiasing & [待填写] & [待填写] & [待填写] \\
+    Moral Self-Correction & [待填写] & [待填写] & [待填写] \\
+    本文方法 & [待填写] & [待填写] & [待填写] \\
+  \bottomrule
+  \end{tabularx}
+\end{table}
+
+待填写结果后，本节建议重点比较两方面内容：一方面，本文方法能否在 $\overline{\Delta}_{sent}^{rew}$ 和 $\overline{\Delta}_{tox}^{rew}$ 上取得更明显的下降；另一方面，在达到相近或更优公平性改善效果时，其 $EditRatio$ 是否显著低于整体重写类方法。若结果符合上述趋势，则可以说明第四章提出的高风险片段定位与局部定向重写策略，能够以更小的文本扰动实现更有效的偏见缓解。
+
+\begin{figure}[hbt]
+  \centering
+  \fbox{\parbox[c][4.0cm][c]{0.84\textwidth}{\centering
+  图表插入提示：在此插入“偏见重写结果对比图”。\\
+  建议采用双轴柱状图或并列柱状图，展示各方法在 $\overline{\Delta}_{sent}^{rew}$、$\overline{\Delta}_{tox}^{rew}$ 和 $EditRatio$ 上的差异。}}
+  \caption{研究内容二结果可视化占位图}
+  \label{fig:rew-result-placeholder}
+\end{figure}
 
 \subsection{典型案例分析}
 
-为了进一步展示本文方法的具体校正行为，本文选取若干典型案例进行分析，分别展示原始回复、定位出的高风险片段、重写后回复以及对应的公平性改善和质量保持情况。通过案例分析可以发现，本文方法倾向于对带有群体刻板印象、差别性建议或不当归纳的局部表达进行针对性修正，而对原始回复中的事实描述和任务主旨保持较高程度的保留。
+为进一步说明第四章方法的重写行为，建议在定稿时补充若干典型案例，对比展示原始偏见回复、定位出的高风险片段、重写后回复以及与反事实回复的对应关系。案例选择上可优先考虑以下两类情形：一类是仅需修改局部刻板印象短语即可显著降低偏见风险的样本；另一类是若整体重写容易造成语义偏移，而本文方法能够保持主要任务信息不变的样本。
 
-图~\ref{fig:case-rewrite} 可用于展示代表性偏见校正案例。
-
-\section{消融实验与参数敏感性分析}
-
-\subsection{去除双阶段验证的影响}
-
-为了分析双阶段验证在识别阶段的作用，本文比较“仅使用反事实差异检测”和“反事实差异检测 + 双阶段验证”两种设置下的实验结果。消融结果表明，去除双阶段验证后，虽然部分样本的召回有所提升，但误判率明显增大，最终导致F1值下降。这说明双阶段验证模块对于提高偏见确认的稳定性和减少过度公平判断具有关键作用。
-
-\subsection{去除优先级排序的影响}
-
-为了分析代价感知优先级排序的作用，本文进一步比较“随机顺序重写”和“基于优先级排序的重写”两种方式。实验结果表明，缺少优先级排序时，方法容易将改写资源分配到风险较低但编辑代价较高的片段上，从而在整体偏见消除率、信息保留度和编辑距离比例等指标上均出现退化。这说明优先级排序机制能够有效提高局部重写的效率和针对性。
-
-\subsection{去除最小编辑约束的影响}
-
-为分析最小编辑约束的重要性，本文将完整方法与不施加最小编辑约束的宽松重写策略进行比较。结果表明，去除该约束后，虽然部分样本的偏见风险可以进一步降低，但编辑距离比例显著增大，语义相似度和信息保留度下降，说明过于自由的重写会导致不必要的语义漂移。因此，最小编辑约束是实现公平性改善与文本质量保持平衡的关键条件之一。
-
-\subsection{去除一致性校验的影响}
-
-本文进一步去除一致性校验模块，直接接受所有重写结果。实验发现，在缺少一致性校验时，部分校正结果虽然降低了原有偏见表达，但同时引入了新的有害内容、语义不连贯问题或模板化拒答，从而使整体文本质量下降。这说明一致性校验机制对于控制校正后副作用、提升结果稳健性具有重要作用。
-
-\subsection{关键参数敏感性分析}
-
-最后，本文对若干关键参数进行敏感性分析，包括偏见敏感性评分中各差异维度的权重系数、候选样本初筛阈值、优先级函数中的权重系数以及重写阶段的编辑预算上限。图~\ref{fig:param-analysis} 可用于展示主要参数变化对偏见识别和偏见校正结果的影响趋势。
-
-总体来看，本文方法在合理参数区间内表现较为稳定，但不同场景下最优参数配置仍存在差异。因此，在实际部署中可根据公平性目标和计算预算对参数进行适当调整。
+\begin{figure}[hbt]
+  \centering
+  \fbox{\parbox[c][4.0cm][c]{0.84\textwidth}{\centering
+  图表插入提示：在此插入“偏见重写典型案例图”。\\
+  建议标出高风险片段、替换后的局部文本以及对应的差值变化。}}
+  \caption{研究内容二典型案例占位图}
+  \label{fig:rew-case-placeholder}
+\end{figure}
 
 \section{本章小结}
 
-本章围绕第三章和第四章提出的方法设计了系统实验，并构建了面向黑盒大语言模型输出后处理的综合评价框架，从公平性、文本质量和效率代价三个层面对方法进行了统一评估。实验结果表明，本文提出的反事实构造与双阶段验证方法能够有效提升偏见识别的准确性与稳健性，代价感知与最小编辑约束重写方法能够在降低偏见风险的同时较好保持原始回复的信息内容与语义质量。进一步的消融实验和参数敏感性分析也验证了各关键模块在整体方法中的必要性与有效性。
+本章按照“先识别、后重写”的实验流程，对第三章和第四章提出的方法进行了统一验证。研究内容一基于 BOLD 与 RedditBias 构造原始输入和反事实输入对，通过情感差值、毒性差值以及外部评审一致率比较不同偏见检测方法的效果，并进一步分析了二阶段验证机制的作用。研究内容二则以前一阶段筛出的偏见回复为对象，对比不同重写方法在缩小情感差值、降低毒性差值和控制编辑幅度方面的表现。整体而言，这样的实验设计能够较好对应本文提出的“反事实偏见识别 + 最小编辑偏见重写”两阶段研究路线，也为后续补充具体实验结果和案例图表提供了清晰结构。
