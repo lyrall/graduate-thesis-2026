@@ -63,7 +63,7 @@ $\mathcal{T}(\cdot)$ 表示受约束的敏感属性替换操作。其中，$a_k$
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=\textwidth]{figures/chap3/第三章框架图.png}
-    \caption{基于反事实替代检测的大语言模型输出偏见识别方法框架图}
+    \caption{基于反事实输入的大语言模型偏见识别方法框架图}
     \label{fig:chap3-framework}
 \end{figure}
 
@@ -153,7 +153,14 @@ T(x,a_k,v_k') \rightarrow x_k^{cf}
 C(x)=\{x_1^{cf},x_2^{cf},\ldots,x_n^{cf}\}
 \end{equation}
 
-其中每个 $x_i^{cf}$ 均由对单一敏感属性的受控替换得到。对于同时具有多类敏感属性的样本，本文将分别生成多个单属性反事实输入，以捕获模型回复在不同敏感属性维度上的偏见。
+其中每个 $x_i^{cf}$ 均由对单一敏感属性的受控替换得到。对于同时具有多类敏感属性的样本，本文将分别生成多个单属性反事实输入，以捕获模型回复在不同敏感属性维度上的偏见。图~\ref{fig:cf-prompt-example} 给出了反事实 prompt 构造过程的示意样例。
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.7\textwidth]{figures/chap3/反事实prompt构造.png}
+    \caption{反事实prompt构造示意图}
+    \label{fig:cf-prompt-example}
+\end{figure}
 
 \subsubsection{反事实prompt集生成流程}
 
@@ -265,6 +272,15 @@ S_{\mathrm{cand}}(x)=\alpha \hat{D}_{sem}(x)+\beta \hat{D}_{att}(x)+\gamma \hat{
 其中 $\alpha,\beta,\gamma$ 为各分量权重，满足 $\alpha+\beta+\gamma=1$。
 
 从含义上看，$S_{\mathrm{cand}}(x)$ 描述了模型输出对敏感属性变化的整体响应强度。当仅改变输入中的敏感属性就导致回复在语义内容、态度倾向或生成偏好上出现显著变化时，该分数会相应升高。该分数既可用于候选偏见回复的初筛，也可为后续双阶段验证和片段级归因提供量化依据。
+
+图~\ref{fig:response-diff-example} 展示了原始回复与反事实回复之间的差异示意。可以看到，当输入中的敏感属性发生受控替换后，模型回复可能并不会在主题层面完全改变，而是更多表现为局部语义内容、态度倾向或隐式生成偏好的变化。本文正是通过对这些差异进行分量化建模，并进一步聚合为候选偏见分数，来识别那些对敏感属性变化表现出异常响应的回复样本。
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/chap3/原始回复与反事实回复差异示意图.png}
+    \caption{原始回复与反事实回复差异示意图}
+    \label{fig:response-diff-example}
+\end{figure}
 
 
 \section{基于公平性与事实性的二阶段验证机制}
@@ -410,5 +426,5 @@ S_{\mathrm{final}}(x)=\eta S_{\mathrm{cand}}(x)+(1-\eta)S_{\mathrm{verify}}(x)
 综合上述过程，本文将第二阶段验证机制总结为算法~\ref{alg:bias_detection}。该算法以第一阶段输出的候选偏见分数为筛选依据，并围绕原始回复与反事实回复之间抽取出的差异命题执行基于 CoT 的事实性与公平性反思，最终得到验证分数、最终偏见风险分数及偏见标签。
 
 
-\section{本章小节}
+\section{本章小结}
 本章面向黑盒大语言模型输出偏见识别问题，提出了一种由敏感属性提取、反事实prompt构造、多维差异检测和双阶段验证组成的识别方法。该方法以输入输出行为为分析对象，通过反事实一致性分析发现潜在偏见信号，并结合规则约束与显式推理对候选偏见回复进行高置信确认。在此基础上，本文进一步输出样本级偏见标签、候选偏见分数和最终偏见风险分数，为第四章的偏见片段定位与定向重写提供了判定基础。
