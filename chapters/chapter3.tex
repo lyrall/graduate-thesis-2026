@@ -119,7 +119,7 @@ a_k=(pos_k,type_k,val_k,conf_k)
 
 \subsection{反事实prompt构造}
 
-\subsubsection{反事实prompt构造原则}
+1. 反事实prompt构造原则
 
 反事实prompt的质量直接决定了后续差异检测的有效性。如果替换过程引入无关语义扰动，则原始回复与反事实回复之间的差异可能来自输入本身的变化，而非模型对敏感属性的偏见响应。本章在具体构造过程中强调以下三点：
 
@@ -131,7 +131,7 @@ a_k=(pos_k,type_k,val_k,conf_k)
 
 上述原则共同保证了反事实prompt构造的可控性，使模型输出差异更有可能反映敏感属性对回复生成的实际影响。
 
-\subsubsection{敏感属性替换规则设计}
+2. 敏感属性替换规则设计
 
 设 $x$ 为原始输入，$a_k\in A(x)$ 为其中一个敏感属性，$v_k'$ 为与其对应的目标替换值，则替换操作可表示为
 \begin{equation}
@@ -144,7 +144,14 @@ T(x,a_k,v_k') \rightarrow x_k^{cf}
 
 需要强调的是，本文的替换规则不追求穷举所有可能表达，而是追求在可控、对称和自然的前提下构造具有比较价值的反事实样本。因此，对无法保证替换后语义自然性和上下文一致性的属性候选，本文不进行反事实扩展。
 
-\subsubsection{单属性与多属性反事实构造策略}
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.7\textwidth]{figures/chap3/反事实prompt构造.png}
+    \caption{反事实prompt构造示意图}
+    \label{fig:cf-prompt-example}
+\end{figure}
+
+3. 单属性与多属性反事实构造策略
 
 在多敏感属性共存的输入中，可选择单属性反事实构造或多属性联合反事实构造两种方式。考虑到多属性同时替换会显著增加输出差异的解释难度，也会扩大生成成本，本文的主方法采用单属性反事实构造策略，即对每次构造仅改变一个敏感属性维度。这样既有助于明确差异来源，也便于后续片段级归因。
 
@@ -155,16 +162,6 @@ C(x)=\{x_1^{cf},x_2^{cf},\ldots,x_n^{cf}\}
 
 其中每个 $x_i^{cf}$ 均由对单一敏感属性的受控替换得到。对于同时具有多类敏感属性的样本，本文将分别生成多个单属性反事实输入，以捕获模型回复在不同敏感属性维度上的偏见。图~\ref{fig:cf-prompt-example} 给出了反事实 prompt 构造过程的示意样例。
 
-\begin{figure}[htbp]
-    \centering
-    \includegraphics[width=0.7\textwidth]{figures/chap3/反事实prompt构造.png}
-    \caption{反事实prompt构造示意图}
-    \label{fig:cf-prompt-example}
-\end{figure}
-
-\subsubsection{反事实prompt集生成流程}
-
-基于上述替换原则与规则设计，本文将反事实prompt集合的生成过程归纳为算法~\ref{alg:cf_prompt_generation}。首先遍历输入中的敏感属性集合 $A(x)$，根据属性类型检索合法替换候选值，然后对原始文本执行局部替换，得到候选反事实输入，最后对候选输入进行语义一致性筛查，去除重复、语义模糊的样本，保留最终的反事实prompt集合 $C(x)$，用于后续差异检测的反事实输入集合。
 
 \begin{algorithm}[htbp]
 \caption{反事实prompt构造算法}
@@ -198,6 +195,10 @@ C(x)=\{x_1^{cf},x_2^{cf},\ldots,x_n^{cf}\}
 \State \Return $C(x)$
 \end{algorithmic}
 \end{algorithm}
+
+4. 反事实prompt集生成流程
+
+基于上述替换原则与规则设计，本文将反事实prompt集合的生成过程归纳为算法~\ref{alg:cf_prompt_generation}。首先遍历输入中的敏感属性集合 $A(x)$，根据属性类型检索合法替换候选值，然后对原始文本执行局部替换，得到候选反事实输入，最后对候选输入进行语义一致性筛查，去除重复、语义模糊的样本，保留最终的反事实prompt集合 $C(x)$，用于后续差异检测的反事实输入集合。
 
 
 \section{原始回复与反事实回复差异检测}
@@ -353,15 +354,6 @@ b_j=\frac{1}{T}\sum_{t=1}^{T} b_j^{(t)}
 u_j=b_j\cdot(1-f_j)
 \end{equation}
 
-其中，$b_j$ 表示命题 $p_j$ 的公平性风险强度，$f_j$ 表示该命题的事实支持程度。该定义表明，只有当命题同时具有较高公平性风险且缺乏充分事实依据时，其伤害分数 $u_j$ 才会显著升高。反之，如果某一命题虽涉及群体差异，但能够得到较强事实支持，则其对应的伤害分数将会降低。通过这一设计，第二阶段验证能够避免将所有群体差异一概视为偏见，从而使最终判定更加谨慎和符合实际语义场景。
-
-最后对命题级伤害分数进行聚合，得到二阶段验证分数
-\begin{equation}
-S_{\mathrm{verify}}(x)=\frac{\sum_{j=1}^{J}\omega_j u_j}{\sum_{j=1}^{J}\omega_j}
-\end{equation}
-
-其中 $\omega_j$ 表示命题重要性权重，由命题所在句的位置、差异幅度决定。
-
 \begin{algorithm}[htbp]
 \caption{基于 CoT 反思的二阶段验证算法}
 \label{alg:bias_detection}
@@ -413,6 +405,15 @@ S_{\mathrm{final}}(x)\gets \eta S_{\mathrm{cand}}(x)+(1-\eta)S_{\mathrm{verify}}
 \State \Return $(\hat{l},S_{\mathrm{verify}}(x),S_{\mathrm{final}}(x))$
 \end{algorithmic}
 \end{algorithm}
+
+其中，$b_j$ 表示命题 $p_j$ 的公平性风险强度，$f_j$ 表示该命题的事实支持程度。该定义表明，只有当命题同时具有较高公平性风险且缺乏充分事实依据时，其伤害分数 $u_j$ 才会显著升高。反之，如果某一命题虽涉及群体差异，但能够得到较强事实支持，则其对应的伤害分数将会降低。通过这一设计，第二阶段验证能够避免将所有群体差异一概视为偏见，从而使最终判定更加谨慎和符合实际语义场景。
+
+最后对命题级伤害分数进行聚合，得到二阶段验证分数
+\begin{equation}
+S_{\mathrm{verify}}(x)=\frac{\sum_{j=1}^{J}\omega_j u_j}{\sum_{j=1}^{J}\omega_j}
+\end{equation}
+
+其中 $\omega_j$ 表示命题重要性权重，由命题所在句的位置、差异幅度决定。
 
 进一步地，将候选偏见分数与验证分数融合，得到最终偏见风险分数
 \begin{equation}
