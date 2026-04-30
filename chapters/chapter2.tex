@@ -45,7 +45,7 @@
 
 \subsection{偏见评测任务的形式化定义}
 
-偏见评测中的数据集和指标是两个相互关联但并不等价的组成部分，数据结构决定了可支持的评测方式，而指标则规定了如何将模型行为映射为可比较的偏见得分。假设将大语言模型记为 $M(\cdot;\theta)$，输入为 $X$，输出为 $\hat{Y}=M(X;\theta)$。在偏见评测中，通常还需要给定一个评测数据集 $D$ 和一个评测指标 $\psi$，于是模型在数据集上的偏见评测结果可以写为
+偏见评测中的数据集和指标是两个相互关联但并不等价的组成部分，数据结构决定了可支持的评测方式，而指标则规定了如何将模型行为映射为可比较的偏见得分。假设将大语言模型记为 $M(\cdot;\theta)$，输入为 $X$，输出为 $\hat{Y}=M(X;\theta)$。在偏见评测中，通常还需要给定一个评测数据集 $D$ 和一个评测指标 $\psi$，于是模型在数据集上的偏见评测结果可以写为：
 \begin{equation}
 \psi(M,D)=\frac{1}{|D|}\sum_{x \in D}\psi(M,x),
 \end{equation}
@@ -67,12 +67,12 @@
 
 基于表示空间的评测方法通过分析敏感群体词与属性词在向量表示空间中的相对位置关系，刻画模型内部是否存在稳定的群体属性关联。如果某一群体词在嵌入空间中更接近某类属性词，则说明模型可能已经编码了相应的刻板印象或偏见关联\cite{DBLP:journals/coling/GallegosRBTKDYZA24,DBLP:conf/naacl/MayWBBR19,DBLP:conf/nips/TanC19,DBLP:conf/aies/GuoC21,DBLP:journals/dase/DolciAT23}。
 
-假设 $A_1,A_2$ 分别表示两个社会群体词集合，$W_1,W_2$ 表示两类属性词集合，则单个词 $a$ 相对于两类属性词集合的关联差可以表示为
+假设 $A_1,A_2$ 分别表示两个社会群体词集合，$W_1,W_2$ 表示两类属性词集合，则单个词 $a$ 相对于两类属性词集合的关联差可以表示为：
 \begin{equation}
 s(a,W_1,W_2)=\operatorname{mean}_{w \in W_1}\cos(a,w)-\operatorname{mean}_{w \in W_2}\cos(a,w)
 \end{equation}
 
-在此基础上，两类群体词集合对两类属性词集合的整体关联效应可表示为
+在此基础上，两类群体词集合对两类属性词集合的整体关联效应可表示为：
 \begin{equation}
 \mathrm{WEAT}(A_1,A_2,W_1,W_2)=
 \frac{\operatorname{mean}_{a \in A_1}s(a,W_1,W_2)-\operatorname{mean}_{a \in A_2}s(a,W_1,W_2)}
@@ -85,26 +85,26 @@ s(a,W_1,W_2)=\operatorname{mean}_{w \in W_1}\cos(a,w)-\operatorname{mean}_{w \in
 
 \subsection{基于条件概率的偏见评测}
 
-第二类方法直接利用模型对词或句子的条件概率进行偏见评测。与表示空间方法相比，这类方法更直接刻画模型在给定语境下对不同群体的偏好，因此在掩码语言模型和自回归语言模型研究中应用广泛。以归一化对数概率偏差为例，设中性属性词在两个群体条件下的预测概率分别为 $p_{a_i}$ 和 $p_{a_j}$，对应先验概率为 $p^{\text{prior}}_{i}$ 与 $p^{\text{prior}}_{j}$，则可定义
+第二类方法直接利用模型对词或句子的条件概率进行偏见评测。与表示空间方法相比，这类方法更直接刻画模型在给定语境下对不同群体的偏好，因此在掩码语言模型和自回归语言模型研究中应用广泛。以归一化对数概率偏差为例，设中性属性词在两个群体条件下的预测概率分别为 $p_{a_i}$ 和 $p_{a_j}$，对应先验概率为 $p^{\text{prior}}_{i}$ 与 $p^{\text{prior}}_{j}$，则可定义：
 \begin{equation}
 \mathrm{LPBS}(S)=\log \frac{p_{a_i}}{p^{\text{prior}}_{i}}-\log \frac{p_{a_j}}{p^{\text{prior}}_{j}}
 \end{equation}
 
 该指标通过先验归一化，试图剔除模型原本对某些群体词的频率偏好，只保留由具体职业、角色或属性词触发的偏差\cite{DBLP:journals/corr/abs-1906-07337}。
 
-对于句子级比较，现有研究大量采用伪似然或近似句子概率进行评分。设句子 $S=\{s_1,s_2,\dots,s_n\}$，则其伪似然可表示为
+对于句子级比较，现有研究大量采用伪似然或近似句子概率进行评分。设句子 $S=\{s_1,s_2,\dots,s_n\}$，则其伪似然可表示为：
 \begin{equation}
 \mathrm{PLL}(S)=\sum_{t=1}^{n}\log P(s_t \mid S \setminus s_t;\theta)
 \end{equation}
 
-即每次遮蔽一个词并用其余词预测该词，再将所有位置的对数概率累加。如果给定成对句子 $S_1$ 和 $S_2$，其中 $S_1$ 为含有刻板印象的句子，$S_2$ 为不含或较少刻板印象的句子，则可用
+即每次遮蔽一个词并用其余词预测该词，再将所有位置的对数概率累加。如果给定成对句子 $S_1$ 和 $S_2$，其中 $S_1$ 为含有刻板印象的句子，$S_2$ 为不含或较少刻板印象的句子，则可用：
 \begin{equation}
 \mathrm{Bias}_{\mathrm{PLL}}(S_1,S_2)=\mathbb{I}\big(\mathrm{PLL}(S_1)>\mathrm{PLL}(S_2)\big)
 \end{equation}
 
 判断模型是否更偏好刻板印象句。对整个数据集求平均后，如果模型频繁偏好 $S_1$，则说明其更容易赋予刻板印象表达较高概率\cite{DBLP:conf/emnlp/NangiaVBB20,DBLP:conf/acl/NadeemBR20,DBLP:conf/aaai/KanekoB22}。
 
-此外，StereoSet 一类方法还同时考察刻板印象、无刻板印象与无意义三类候选，并据此定义语言建模能力与刻板印象倾向的联合指标。理想化的语言模型应该优先选择有意义、无刻板印象偏向的选项，评估指标可写为
+此外，StereoSet 一类方法还同时考察刻板印象、无刻板印象与无意义三类候选，并据此定义语言建模能力与刻板印象倾向的联合指标。理想化的语言模型应该优先选择有意义、无刻板印象偏向的选项，评估指标可写为：
 \begin{equation}
 \mathrm{iCAT}=lms \cdot \frac{\min(ss,100-ss)}{50}
 \end{equation}
@@ -113,14 +113,14 @@ s(a,W_1,W_2)=\operatorname{mean}_{w \in W_1}\cos(a,w)-\operatorname{mean}_{w \in
 
 \subsection{基于生成文本的偏见评测}
 
-随着闭源大语言模型和 API 服务的广泛应用，研究重点进一步转向基于生成文本的偏见评测。该类方法不要求访问模型内部表示或 token 概率，而是直接分析模型在给定提示词下的自然语言输出，因此尤其适用于黑盒场景。设 $\hat{Y}_i$ 和 $\hat{Y}_j$ 分别表示原始提示与反事实提示下的生成结果，则最直接的一类不变性评测可以写为
+随着闭源大语言模型和 API 服务的广泛应用，研究重点进一步转向基于生成文本的偏见评测。该类方法不要求访问模型内部表示或 token 概率，而是直接分析模型在给定提示词下的自然语言输出，因此尤其适用于黑盒场景。设 $\hat{Y}_i$ 和 $\hat{Y}_j$ 分别表示原始提示与反事实提示下的生成结果，则最直接的一类不变性评测可以写为：
 \begin{equation}
 \mathrm{SGS}(\hat{Y})=\psi(\hat{Y}_i,\hat{Y}_j)
 \end{equation}
 
 其中 $\psi(\cdot,\cdot)$ 可以使用精确匹配、语义相似度或其它一致性函数。当仅改变敏感属性而输出发生明显偏移时，可视为模型存在潜在偏见。
 
-更常见的做法是借助外部分类器对生成文本进行毒性、情感、态度或伤害性评分。设 $c(\hat{Y}) \in [0,1]$ 为某个外部评分函数，则在多次采样生成结果集合 $\hat{\mathcal{Y}}$ 上，可定义最大毒性、毒性概率与毒性比例分别为
+更常见的做法是借助外部分类器对生成文本进行毒性、情感、态度或伤害性评分。设 $c(\hat{Y}) \in [0,1]$ 为某个外部评分函数，则在多次采样生成结果集合 $\hat{\mathcal{Y}}$ 上，可定义最大毒性、毒性概率与毒性比例分别为：
 \begin{equation}
 \mathrm{EMT}(\hat{\mathcal{Y}})=\max_{\hat{Y}\in \hat{\mathcal{Y}}} c(\hat{Y})
 \end{equation}
@@ -133,7 +133,7 @@ s(a,W_1,W_2)=\operatorname{mean}_{w \in W_1}\cos(a,w)-\operatorname{mean}_{w \in
 
 如果不同群体提示下得到的这些指标存在系统差异，则说明模型在开放生成过程中可能对某些群体产生更高的有害输出风险\cite{DBLP:conf/emnlp/GehmanGSCS20,DBLP:conf/emnlp/ShengCNP19,DBLP:conf/fat/DhamalaSKKPCG21}。
 
-除分类器方法外，词典匹配也是生成文本评测的重要路径。HONEST 指标采用模板与伤害性词典相结合的方式，对生成结果中的冒犯性补全内容进行统计评估，其中，HurtLex 是常用的多语言伤害性词典资源之一 \cite{DBLP:conf/naacl/NozzaBH21}。假设伤害性词典指示函数为 $\mathbb{I}_{\text{lex}}(\cdot)$，对 top-$k$ 个生成候选可定义
+除分类器方法外，词典匹配也是生成文本评测的重要路径。HONEST 指标采用模板与伤害性词典相结合的方式，对生成结果中的冒犯性补全内容进行统计评估，其中，HurtLex 是常用的多语言伤害性词典资源之一 \cite{DBLP:conf/naacl/NozzaBH21}。假设伤害性词典指示函数为 $\mathbb{I}_{\text{lex}}(\cdot)$，对 top-$k$ 个生成候选可定义：
 \begin{equation}
 \mathrm{HONEST}(\hat{\mathcal{Y}})=
 \frac{\sum_{\hat{Y}_k \in \hat{\mathcal{Y}}}\sum_{\hat{y}\in \hat{Y}_k}\mathbb{I}_{\text{lex}}(\hat{y})}
@@ -181,7 +181,7 @@ s(a,W_1,W_2)=\operatorname{mean}_{w \in W_1}\cos(a,w)-\operatorname{mean}_{w \in
 
 \subsection{预处理阶段的偏见缓解方法}
 
-预处理方法的本质是对模型输入分布进行变换，而不直接修改模型内部参数。将原始训练数据记为 $D=\{(x_i,y_i)\}_{i=1}^{N}$，则预处理可表示为
+预处理方法的本质是对模型输入分布进行变换，而不直接修改模型内部参数。将原始训练数据记为 $D=\{(x_i,y_i)\}_{i=1}^{N}$，则预处理可表示为：
 \begin{equation}
 D'=\mathcal{T}_{pre}(D)
 \end{equation}
@@ -194,7 +194,7 @@ D'=\mathcal{T}_{pre}(D)
 
 \subsection{训练阶段的偏见缓解方法}
 
-训练阶段方法直接在参数学习过程中引入公平性约束。设模型原始训练目标为 $\mathcal{L}_{task}(\theta)$，则偏见缓解通常可表示为如下多目标优化形式
+训练阶段方法直接在参数学习过程中引入公平性约束。设模型原始训练目标为 $\mathcal{L}_{task}(\theta)$，则偏见缓解通常可表示为如下多目标优化形式：
 \begin{equation}
 \theta^{*}=\arg\min_{\theta}\ \mathcal{L}_{task}(\theta)+\lambda \mathcal{L}_{fair}(\theta)
 \end{equation}
@@ -205,7 +205,7 @@ D'=\mathcal{T}_{pre}(D)
 
 \subsection{推理阶段的偏见缓解方法}
 
-推理阶段方法不更新模型参数，而是在生成过程中动态施加控制，因此可视为对解码过程的在线干预。设模型对时刻 $t$ 的原始预测分布为 $P_{\theta}(y_t \mid x, y_{<t})$，则推理阶段控制可表示为
+推理阶段方法不更新模型参数，而是在生成过程中动态施加控制，因此可视为对解码过程的在线干预。设模型对时刻 $t$ 的原始预测分布为 $P_{\theta}(y_t \mid x, y_{<t})$，则推理阶段控制可表示为：
 \begin{equation}
 P'(y_t \mid x, y_{<t})=\mathcal{C}\big(P_{\theta}(y_t \mid x, y_{<t}), x, y_{<t}, r_t\big)
 \end{equation}
@@ -216,14 +216,14 @@ P'(y_t \mid x, y_{<t})=\mathcal{C}\big(P_{\theta}(y_t \mid x, y_{<t}), x, y_{<t}
 
 \subsection{后处理阶段与输出重写方法}
 
-后处理方法在模型输出已经生成之后再进行风险修正，其输入不再是训练数据或中间概率，而是完整文本 $y$。将重写后的输出记为 $y'$，则后处理可抽象为
+后处理方法在模型输出已经生成之后再进行风险修正，其输入不再是训练数据或中间概率，而是完整文本 $y$。将重写后的输出记为 $y'$，则后处理可抽象为：
 \begin{equation}
 y'=\mathcal{R}(y)
 \end{equation}
 
 其中 $\mathcal{R}$ 是作用在输出文本上的检测和编辑联合函数。对偏见校正而言，后处理方法需要在风险降低、语义保持和编辑代价之间取得平衡。
 
-因此，输出重写通常更适合写成如下优化目标
+因此，输出重写通常更适合写成如下优化目标：
 \begin{equation}
 y^{*}=\arg\min_{y'} \ \alpha \, \mathrm{Risk}(y') + \beta \, \mathrm{Drift}(y,y') + \gamma \, \mathrm{Cost}(y,y')
 \end{equation}
