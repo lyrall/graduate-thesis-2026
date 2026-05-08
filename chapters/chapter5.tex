@@ -12,6 +12,8 @@
 
 \subsection{实验对象与运行环境}
 
+本文实验以 Qwen2.5-7B-Instruct 作为目标生成模型，统一完成原始回复生成、反事实回复生成以及偏见回复重写。对于偏见识别结果的辅助分析，本文额外调用 Llama-Guard-3 和 GPT-5.4 作为外部评审器，从安全性和公平性判断两个角度对候选偏见样本进行评估。
+
 \begin{table}[hbt]
   \centering
   \caption{实验硬件配置}
@@ -32,32 +34,11 @@
 \end{table}
 \vspace{0.5\baselineskip}
 
-本文主实验以 Qwen2.5-3B-Instruct 作为目标生成模型，统一完成原始回复生成、反事实回复生成以及偏见回复重写。对于偏见识别结果的辅助分析，本文额外调用 Llama-Guard-3 和 GPT-5.4 作为外部评审器，从安全性和公平性判断两个角度对候选偏见样本进行评估。
-
-本文对所有实验采取统一的软硬件设置，实验基于 Linux 操作系统，具体硬件配置如表~\ref{tab:hardware-config}所示。本文所有实验均采用 Python 语言实现，具体使用的包和库版本设置如表~\ref{tab:software-config} 所示。
-
-\begin{table}[hbt]
-  \centering
-  \caption{实验框架配置}
-  \label{tab:software-config}
-  \begin{tabularx}{0.72\textwidth}{>{\centering\arraybackslash}m{3.8cm}>{\centering\arraybackslash}X}
-  \toprule
-    环境名称 & 配置信息 \\
-  \midrule
-    Python & 3.10.20 \\
-    PyTorch & 2.7.1 \\
-    Transformers & 5.5.4 \\
-    Accelerate & 1.13.0 \\
-    NumPy & 2.2.6 \\
-    Tokenizers & 0.22.2 \\
-    CUDA Toolkit & 13.0.2 \\
-  \bottomrule
-  \end{tabularx}
-\end{table}
+本文对所有实验采取统一的软硬件设置，实验基于 Linux 操作系统，具体硬件配置如表~\ref{tab:hardware-config}所示。
 
 \subsection{数据集与样本构造}
 
-根据参考实验流程，本文使用 BOLD\cite{DBLP:conf/fat/DhamalaSKKPCG21} 和 RedditBias\cite{DBLP:conf/acl/BarikeriLVG20} 两个数据集。BOLD 数据集是面向开放式文本生成偏见评测数据集，包含 23,679 条从英文维基百科词条的开头抽取的自然文本提示，覆盖 profession、gender、race、religious belief 和 political ideology 五个领域，共涉及 43 个群体子类。与人工设计的模板式测试集相比，BOLD 的 prompt 更接近真实语料分布，因而更适合评估大语言模型在开放生成场景中的偏见表现。
+本文使用 BOLD\cite{DBLP:conf/fat/DhamalaSKKPCG21} 和 RedditBias\cite{DBLP:conf/acl/BarikeriLVG20} 两个数据集。BOLD 数据集是面向开放式文本生成偏见评测数据集，包含 23,679 条从英文维基百科词条的开头抽取的自然文本提示，覆盖 profession、gender、race、religious belief 和 political ideology 五个领域，共涉及 43 个群体子类。与人工设计的模板式测试集相比，BOLD 的 prompt 更接近真实语料分布，因而更适合评估大语言模型在开放生成场景中的偏见表现。
 
 \begin{table}[hbt]
   \centering
@@ -75,7 +56,11 @@
 
 RedditBias 数据集是面向对话系统偏见评测的真实世界数据资源。该数据集从 Reddit 评论中检索并人工标注偏见表达，覆盖 gender、race、religion 和 queerness 四个维度，其中 religion 又进一步划分为 Jews/Christians 与 Muslims/Christians 两个子类型。与主要由百科词条开头构成的 BOLD 不同，RedditBias 保留了社交媒体评论中更强的口语化、碎片化和情绪化表达，更适合用于观察模型在真实对话语境下对敏感群体的刻板印象与毒性偏移。
 
-\begin{table}[hbt]
+结合本文的研究目标，本文从 BOLD 中选取 Gender、Political ideology 和 Race 三个敏感属性维度进行实验，每个维度各抽取 1000 条数据。对于 RedditBias，本文选取 Gender、Race 和 Religion 三种偏见类型，每个类型抽取 1000 条真实样本。对于每条原始样本，本文均构造与之语义主干保持一致、仅替换敏感属性的反事实输入，以获得原始回复与反事实回复的配对样本。
+
+表~\ref{tab:bold-examples} 给出了本文在 BOLD 数据集上选取的代表性 prompt 样例。表中按照 Gender、Political ideologies 和 Race 三个类别分别展示 3 条真实样本，这些样本均保留了维基百科词条开头的自然表达形式，而非人工拼接的固定模板，因此更有利于观察模型在开放生成条件下对不同社会群体、政治立场和种族身份的响应差异。
+
+\begin{table}[!hbt]
   \centering
   \caption{BOLD 数据集代表性样例}
   \label{tab:bold-examples}
@@ -96,7 +81,7 @@ RedditBias 数据集是面向对话系统偏见评测的真实世界数据资源
   \end{tabularx}
 \end{table}
 
-\begin{table}[hbt]
+\begin{table}[!hbt]
   \centering
   \caption{RedditBias 数据集代表性样例}
   \label{tab:redditbias-examples}
@@ -117,10 +102,6 @@ RedditBias 数据集是面向对话系统偏见评测的真实世界数据资源
   \end{tabularx}
 \end{table}
 
-结合本文的研究目标，本文从 BOLD 中选取 Gender、Political ideology 和 Race 三个敏感属性维度进行实验，每个维度各抽取 1000 条数据。对于 RedditBias，本文选取 Gender、Race 和 Religion 三种偏见类型，每个类型抽取 1000 条真实样本。对于每条原始样本，本文均构造与之语义主干保持一致、仅替换敏感属性的反事实输入，以获得原始回复与反事实回复的配对样本。
-
-表~\ref{tab:bold-examples} 给出了本文在 BOLD 数据集上选取的代表性 prompt 样例。表中按照 Gender、Political ideologies 和 Race 三个类别分别展示 3 条真实样本，这些样本均保留了维基百科词条开头的自然表达形式，而非人工拼接的固定模板，因此更有利于观察模型在开放生成条件下对不同社会群体、政治立场和种族身份的响应差异。
-
 表~\ref{tab:redditbias-examples} 给出了本文使用的三个 RedditBias 子数据文件中的代表性真实样例。这些样本大多保留了目标群体词附近的局部上下文，语言形式更接近日常社交媒体评论，能够较集中地暴露职业角色联想、种族污名化和宗教刻板印象等偏见线索。
 
 
@@ -134,24 +115,52 @@ RedditBias 数据集是面向对话系统偏见评测的真实世界数据资源
 
 2. 外部评审设置与对比试验分析。仅依赖自动化指标虽然能够衡量回复差异的大小，但尚不足以完全判断这些差异是否真正构成偏见。因此，本文进一步引入外部评审机制，对本文方法与基线方法筛选出的候选偏见样本进行分析。本文采用 Llama-Guard-3 和 GPT-5.4 作为外部评审器，从内容安全性和公平性两个角度对候选样本进行辅助判断，并比较不同方法在检出的偏见样本准确率与召回率。
 
+\subsection{参数设置}
+
+\begin{table}[hbt]
+  \centering
+  \caption{第三章偏见识别方法的参数设置}
+  \label{tab:chap3-params}
+  \small
+  \renewcommand{\tabularxcolumn}[1]{m{#1}}
+  \begin{tabularx}{0.78\textwidth}{>{\centering\arraybackslash}m{2.4cm}>{\centering\arraybackslash}X>{\centering\arraybackslash}m{2.0cm}}
+  \toprule
+    参数 & 含义 & 取值 \\
+  \midrule
+    $\tau_{\mathrm{sim}}$ & 知识图谱词项扩展的余弦相似度阈值 & 0.72 \\
+    $N_{cf}$ & 每条输入最大保留反事实 prompt 数 & 4 \\
+    $\alpha$ & 候选偏见分数中语义偏移权重 & 0.3 \\
+    $\beta$ & 候选偏见分数中态度变化权重 & 0.45 \\
+    $\gamma$ & 候选偏见分数中生成偏好差异权重 & 0.25 \\
+    $T$ & 二阶段 CoT 反思次数 & 3 \\
+    $\eta$ & 候选偏见分数与验证分数的融合系数 & 0.4 \\
+    $\tau_b$ & 最终偏见风险判定阈值 & 0.58 \\
+  \bottomrule
+  \end{tabularx}
+\end{table}
+
+表~\ref{tab:chap3-params}中展示了偏见识别方法使用的超参数，涉及隐式敏感属性识别、反事实样本构造、候选偏见分数聚合以及二阶段验证分数融合四个环节。
+
+其中，$\alpha+\beta+\gamma=1$，对应第三章中候选偏见分数的线性加权设置。从参数作用上看，本文适当提高了态度变化度所占比重，这是因为在偏见识别场景下，模型对不同敏感群体在建议方向、支持强度和褒贬倾向上的变化，通常比单纯的主题偏移更直接反映不公平风险。与此同时，生成偏好差异作为补充信号保留较小但稳定的权重，以增强对隐式偏置的识别能力。
+
 
 \subsection{评价指标设置与实验结果分析}
 
-参考 BOLD 数据集论文\cite{DBLP:conf/fat/DhamalaSKKPCG21} 中的指标设计，本文采用情感与毒性两类自动化指标，从情绪极性与内容伤害性两个角度衡量原始回复与反事实回复之间的差异。本文这一部分实验的核心逻辑是：首先使用第三章提出的方法，将全部模型回复作为样本，并根据方法给出的识别结果划分为偏见样本与非偏见样本两类。随后分别计算两类样本中原始回复与反事实回复在情感和毒性指标上的差值，并比较其平均水平。若本文方法能够有效识别真正由敏感属性变化引起的不合理输出差异，则被判定为偏见的样本，其原始回复与反事实回复之间的平均差值应显著大于非偏见样本。
+本文采用情感与毒性两类自动化指标，从情绪极性与内容伤害性两个角度衡量原始回复与反事实回复之间的差异。这一部分实验的核心逻辑是：首先使用第三章提出的方法，将全部模型回复作为样本，并根据方法给出的识别结果划分为偏见样本与非偏见样本两类。随后分别计算两类样本中原始回复与反事实回复在情感和毒性指标上的差值，并比较其平均水平。若本文方法能够有效识别真正由敏感属性变化引起的不合理输出差异，则被判定为偏见的样本，其原始回复与反事实回复之间的平均差值应显著大于非偏见样本。
 
 两个指标的具体定义如下：
 
-（1）情感差值。BOLD 论文采用 VADER（Valence Aware Dictionary and Sentiment Reasoner）对生成文本进行情感分析。该方法先基于词级情感词典为文本中的词项赋予 valence 分数，再结合上下文规则对整体情绪进行修正，从而得到句级情感得分。记情感函数为 $V(\cdot)$，其输出范围为 $[-1,1]$，其中 $-1$ 表示强负向情感，$1$ 表示强正向情感。按照原论文设置，当得分不小于 $0.5$ 时可视为正向情感，当得分不大于 $-0.5$ 时可视为负向情感。本文中关注原始回复与反事实回复之间的连续分值差异，因此将第 $i$ 个样本的情感差值定义为
+（1）情感差值。采用 VADER（Valence Aware Dictionary and Sentiment Reasoner）\cite{DBLP:conf/icwsm/HuttoG14}对生成文本进行情感分析。该方法先基于词级情感词典为文本中的词项赋予 valence 分数，再结合上下文规则对整体情绪进行修正，从而得到句级情感得分。记情感函数为 $V(\cdot)$，其输出范围为 $[-1,1]$，其中 $-1$ 表示强负向情感，$1$ 表示强正向情感。按照原论文设置，当得分不小于 $0.5$ 时可视为正向情感，当得分不大于 $-0.5$ 时可视为负向情感。本文中关注原始回复与反事实回复之间的连续分值差异，因此将第 $i$ 个样本的情感差值定义为:
 \begin{equation}
 \Delta_{sent}^{(i)}=\left|V(y_i)-V(y_i^{cf})\right|
 \end{equation}
 
-（2）毒性差值。BOLD 论文同时强调，仅考察情感极性并不足以完整描述文本偏见，因为某些生成结果虽然未必明显更负面，却可能包含侮辱、威胁、仇恨攻击或身份攻击等更直接的伤害性表达。为此，本文采用在 toxic comment 数据集上微调的 BERT 分类器判断回复是否命中 toxic、severe toxic、threat、obscene、insult 或 identity attack 等标签。如果文本命中任一毒性标签，则记为有毒，否则记为无毒。记毒性判别函数为 $T(\cdot)\in\{0,1\}$，则有
+（2）毒性差值。仅考察情感极性并不足以完整描述文本偏见，某些生成结果可能不体现出明显负面情感，却包含侮辱、威胁、仇恨攻击或身份攻击等伤害性表达。因此，本文采用在毒性评论集上微调的 BERT 分类器\cite{toxic-comment-classification}判断回复是否命中 toxic、severe toxic、threat、obscene、insult 或 identity attack 等标签。如果文本命中任一毒性标签，则记为有毒，否则记为无毒。记毒性判别函数为 $T(\cdot)\in\{0,1\}$，则有:
 \begin{equation}
 \Delta_{tox}^{(i)}=\left|T(y_i)-T(y_i^{cf})\right|
 \end{equation}
 
-设本文方法最终判定的偏见样本集合为 $\mathcal{B}^{bias}$，非偏见样本集合为 $\mathcal{B}^{non}$。则两类样本上的平均情感差值分别定义为
+设本文方法最终判定的偏见样本集合为 $\mathcal{B}^{bias}$，非偏见样本集合为 $\mathcal{B}^{non}$。则两类样本上的平均情感差值分别定义为:
 \begin{equation}
 \overline{\Delta}_{sent}^{bias}=\frac{1}{|\mathcal{B}^{bias}|}\sum_{i\in\mathcal{B}^{bias}}\Delta_{sent}^{(i)}
 \end{equation}
@@ -159,7 +168,21 @@ RedditBias 数据集是面向对话系统偏见评测的真实世界数据资源
 \overline{\Delta}_{sent}^{non}=\frac{1}{|\mathcal{B}^{non}|}\sum_{i\in\mathcal{B}^{non}}\Delta_{sent}^{(i)}
 \end{equation}
 
-两类样本上的平均毒性差值分别定义为
+\begin{figure}[!hbt]
+  \centering
+  \includegraphics[width=0.92\textwidth]{figures/chap5/bold__指标结果/原始回复分布.png}
+  \caption{BOLD 数据集上原始回复的情感与毒性分布}
+  \label{fig:bold-origin-dist}
+\end{figure}
+
+\begin{figure}[!hbt]
+  \centering
+  \includegraphics[width=0.92\textwidth]{figures/chap5/redditbias_指标结果/原始回复分布.png}
+  \caption{RedditBias 数据集上原始回复的情感与毒性分布}
+  \label{fig:reddit-origin-dist}
+\end{figure}
+
+两类样本上的平均毒性差值分别定义为:
 \begin{equation}
 \overline{\Delta}_{tox}^{bias}=\frac{1}{|\mathcal{B}^{bias}|}\sum_{i\in\mathcal{B}^{bias}}\Delta_{tox}^{(i)}
 \end{equation}
@@ -167,7 +190,7 @@ RedditBias 数据集是面向对话系统偏见评测的真实世界数据资源
 \overline{\Delta}_{tox}^{non}=\frac{1}{|\mathcal{B}^{non}|}\sum_{i\in\mathcal{B}^{non}}\Delta_{tox}^{(i)}
 \end{equation}
 
-基于上述定义，本文在 BOLD 与 RedditBias 两个数据集上分别统计 $\overline{\Delta}_{sent}^{bias}$、$\overline{\Delta}_{sent}^{non}$、$\overline{\Delta}_{tox}^{bias}$ 和 $\overline{\Delta}_{tox}^{non}$。如果本文方法识别出的偏见样本确实更容易受到敏感属性替换的影响，则应满足
+基于上述定义，本文在 BOLD 与 RedditBias 两个数据集上分别统计 $\overline{\Delta}_{sent}^{bias}$、$\overline{\Delta}_{sent}^{non}$、$\overline{\Delta}_{tox}^{bias}$ 和 $\overline{\Delta}_{tox}^{non}$。如果本文方法识别出的偏见样本确实更容易受到敏感属性替换的影响，则应满足：
 \begin{equation}
 \overline{\Delta}_{sent}^{bias}>\overline{\Delta}_{sent}^{non}
 \end{equation}
@@ -175,21 +198,7 @@ RedditBias 数据集是面向对话系统偏见评测的真实世界数据资源
 \overline{\Delta}_{tox}^{bias}>\overline{\Delta}_{tox}^{non}
 \end{equation}
 
-本文对 BOLD 数据集与 RedditBias 数据集进行了可视化分析，三组图片分别展示了 原始回复的情感/毒性分布、原始回复与反事实回复之间的差值分布，以及按本文方法划分后的偏见样本与非偏见样本对比结果。
-
-\begin{figure}[hbt]
-  \centering
-  \includegraphics[width=0.92\textwidth]{figures/chap5/bold__指标结果/原始回复分布.png}
-  \caption{BOLD 数据集上原始回复的情感与毒性分布}
-  \label{fig:bold-origin-dist}
-\end{figure}
-
-\begin{figure}[hbt]
-  \centering
-  \includegraphics[width=0.92\textwidth]{figures/chap5/redditbias_指标结果/原始回复分布.png}
-  \caption{RedditBias 数据集上原始回复的情感与毒性分布}
-  \label{fig:reddit-origin-dist}
-\end{figure}
+本文对 BOLD 数据集与 RedditBias 数据集进行了可视化分析，三组图片分别展示了原始回复的情感/毒性分布、原始回复与反事实回复之间的差值分布，以及按本文方法划分后的偏见样本与非偏见样本对比结果。
 
 与图~\ref{fig:bold-origin-dist} 相比，图~\ref{fig:reddit-origin-dist} 中 RedditBias 数据集的情感分布整体更偏向正向区间，两个数据集的原始回复毒性分布都集中在 $0$ 附近的低值区域。说明真实社交媒体评论语境下的回复呈现出更强烈的主观态度。
 
@@ -199,6 +208,7 @@ RedditBias 数据集是面向对话系统偏见评测的真实世界数据资源
   \caption{BOLD 数据集上原始回复与反事实回复的差值分布}
   \label{fig:bold-diff-dist}
 \end{figure}
+
 \begin{figure}[!hbt]
   \centering
   \includegraphics[width=0.92\textwidth]{figures/chap5/redditbias_指标结果/反事实回复与原始回复差值分布.png}
@@ -208,23 +218,23 @@ RedditBias 数据集是面向对话系统偏见评测的真实世界数据资源
 
 图~\ref{fig:bold-diff-dist} 与图~\ref{fig:reddit-diff-dist} 展示了原始回复与反事实回复之间的差值分布。图中显示，在两个数据集上情感差值与毒性差值都不是均匀分布的，存在一部分差值明显较大的样本。说明在仅替换敏感属性后，模型生成回复的得分在不同样本之间确实存在显著差异。相较之下，RedditBias 上的长尾现象更明显，说明真实社交媒体评论语境下更容易出现对敏感属性替换反应更强的高差值样本。
 
-\begin{figure}[hbt]
+图~\ref{fig:bold-bias-group} 与图~\ref{fig:reddit-bias-group} 展示了偏见样本与非偏见样本在两类指标上的平均差值。从箱线图结果可以看到，在 BOLD 和 RedditBias 两个数据集上，偏见样本组在情感差值和毒性差值上的中位数及整体分布区间均高于非偏见样本组，这说明被本文方法识别为偏见的样本，确实更容易在仅替换敏感属性后产生更强的回复变化。实验结果整体支持了
+$\overline{\Delta}_{sent}^{bias}>\overline{\Delta}_{sent}^{non}$ 和
+$\overline{\Delta}_{tox}^{bias}>\overline{\Delta}_{tox}^{non}$ 这一判别预期，从结果层面验证了本文方法能够区分对变化显著的偏见样本与变化不显著的非偏见样本。
+
+\begin{figure}[!hbt]
   \centering
   \includegraphics[width=0.96\textwidth]{figures/chap5/bold__指标结果/bias_group_comparison.png}
   \caption{BOLD 数据集上偏见样本与非偏见样本的指标差值对比}
   \label{fig:bold-bias-group}
 \end{figure}
 
-\begin{figure}[hbt]
+\begin{figure}[!hbt]
   \centering
   \includegraphics[width=0.96\textwidth]{figures/chap5/redditbias_指标结果/bias_group_comparison.png}
   \caption{RedditBias 数据集上偏见样本与非偏见样本的指标差值对比}
   \label{fig:reddit-bias-group}
 \end{figure}
-
-图~\ref{fig:bold-bias-group} 与图~\ref{fig:reddit-bias-group} 展示了偏见样本与非偏见样本在两类指标上的平均差值。从箱线图结果可以看到，在 BOLD 和 RedditBias 两个数据集上，偏见样本组在情感差值和毒性差值上的中位数及整体分布区间均高于非偏见样本组，这说明被本文方法识别为偏见的样本，确实更容易在仅替换敏感属性后产生更强的回复变化。实验结果整体支持了
-$\overline{\Delta}_{sent}^{bias}>\overline{\Delta}_{sent}^{non}$ 和
-$\overline{\Delta}_{tox}^{bias}>\overline{\Delta}_{tox}^{non}$ 这一判别预期，从结果层面验证了本文方法能够区分对变化显著的偏见样本与变化不显著的非偏见样本。
 
 
 \subsection{外部评审设置与对比实验分析}
@@ -249,24 +259,25 @@ $\overline{\Delta}_{tox}^{bias}>\overline{\Delta}_{tox}^{non}$ 这一判别预�
 \end{enumerate}
 
 
-
 \begin{table}[hbt]
   \centering
   \caption{BOLD 数据集各方法检测结果对比}
   \label{tab:bold-det}
   \begin{tabularx}{\textwidth}{>{\centering\arraybackslash}m{2.8cm}*{6}{>{\centering\arraybackslash}X}}
     \toprule
-    \multirow{2}{*}{方法} & \multicolumn{2}{c}{Gender} & \multicolumn{2}{c}{Political ideologies} & \multicolumn{2}{c}{Race} \\
-    \cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}
-     & GPT-5.4 & Llama-Guard-3 & GPT-5.4 & Llama-Guard-3 & GPT-5.4 & Llama-Guard-3 \\
+    方法 & \multicolumn{2}{c}{Gender} & \multicolumn{2}{c}{Political ideologies} & \multicolumn{2}{c}{Race} \\
+    \cmidrule(lr){1-1} \cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}
+    评审器 & GPT-5.4 & Llama-Guard-3 & GPT-5.4 & Llama-Guard-3 & GPT-5.4 & Llama-Guard-3 \\
     \midrule
-    HONEST & 67.2 & 66.9 & 65.7 & 64.7 & 62.7 & 63.1 \\
-    TWBias & 84.9 & 84.4 & 73.2 & 74.3 & 79.6 & 80.0 \\
-    BiasGuard & 89.2 & \textbf{90.1} & 74.8 & 74.2 & 79.5 & 79.2 \\
+    HONEST\cite{DBLP:conf/naacl/NozzaBH21} & 67.2 & 66.9 & 65.7 & 64.7 & 62.7 & 63.1 \\
+    TWBias\cite{hsieh2024twbias} & 84.9 & 84.4 & 73.2 & 74.3 & 79.6 & 80.0 \\
+    BiasGuard\cite{fan2025biasguard} & 89.2 & \textbf{90.1} & 74.8 & 74.2 & 79.5 & 79.2 \\
     本文方法 & \textbf{89.4} & 88.7 & \textbf{76.6} & \textbf{76.7} & \textbf{82.1} & \textbf{83.3} \\
     \bottomrule
   \end{tabularx}
 \end{table}
+
+表~\ref{tab:bold-det} 展示了 BOLD 数据集上的检测结果。可以看出，本文方法在大部分类别的检测准确率上都取得最优，仅在 Gender 类别的 Llama-Guard-3 评审结果上略低于 BiasGuard 方法。
 
 \begin{table}[hbt]
   \centering
@@ -274,25 +285,27 @@ $\overline{\Delta}_{tox}^{bias}>\overline{\Delta}_{tox}^{non}$ 这一判别预�
   \label{tab:reddit-det}
   \begin{tabularx}{\textwidth}{>{\centering\arraybackslash}m{2.8cm}*{6}{>{\centering\arraybackslash}X}}
     \toprule
-    \multirow{2}{*}{方法} & \multicolumn{2}{c}{Gender} & \multicolumn{2}{c}{Race} & \multicolumn{2}{c}{Religion} \\
-    \cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}
-     & GPT-5.4 & Llama-Guard-3 & GPT-5.4 & Llama-Guard-3 & GPT-5.4 & Llama-Guard-3 \\
+    方法 & \multicolumn{2}{c}{Gender} & \multicolumn{2}{c}{Race} & \multicolumn{2}{c}{Religion} \\
+    \cmidrule(lr){1-1} \cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}
+    评审器 & GPT-5.4 & Llama-Guard-3 & GPT-5.4 & Llama-Guard-3 & GPT-5.4 & Llama-Guard-3 \\
     \midrule
-    HONEST & 70.0 & 69.6 & 63.9 & 65.2 & 62.0 & 62.1 \\
-    TWBias & 80.1 & 80.1 & 88.0 & 87.7 & 76.6 & 76.6 \\
-    BiasGuard & \textbf{82.0} & 81.6 & 84.5 & 84.4 & 77.7 & 76.4 \\
+    HONEST\cite{DBLP:conf/naacl/NozzaBH21} & 70.0 & 69.6 & 63.9 & 65.2 & 62.0 & 62.1 \\
+    TWBias\cite{hsieh2024twbias} & 80.1 & 80.1 & 88.0 & 87.7 & 76.6 & 76.6 \\
+    BiasGuard\cite{fan2025biasguard} & \textbf{82.0} & 81.6 & 84.5 & 84.4 & 77.7 & 76.4 \\
     本文方法 & 81.8 & \textbf{81.4} & \textbf{92.0} & \textbf{92.0} & \textbf{82.1} & \textbf{81.9} \\
     \bottomrule
   \end{tabularx}
 \end{table}
 
+表~\ref{tab:reddit-det} 给出了 RedditBias 数据集上的检测结果。与 BOLD 相比，RedditBias 的文本更加口语化、碎片化，语境噪声也更强，因此整体任务难度更高。本文方法在 Race 与 Religion 两个类别上均明显优于三种基线方法，其中，Race 类别在 GPT-5.4 与 Llama-Guard-3 两个评审器下分别达到 92.0\% 和 92.0\%，相较其他方法表现出更稳定的优势，说明本文方法对于社交媒体语境中更隐式、更依赖上下文对比的种族偏见表达具有更强的识别能力。
+
 \subsection{消融实验分析}
 
-本文进一步对第三章提出的偏见识别方法进行了消融实验，以验证各环节在整体识别流程中的实有效性。本节设置以下三种方法版本进行比较。第一种，移除第一阶段中基于语义偏移、态度变化和生成偏好等多维信号构造候选偏见分数的过程，仅保留后续验证机制。第二种，移除基于 CoT 的反思验证模块，仅依据候选偏见分数给出偏见判断。第三种是本文使用的完整方法，即同时保留多维差异检测与基于 CoT 的反思验证。
+本文进一步对第三章提出的偏见识别方法进行了消融实验，以验证各环节在整体识别流程中的实际作用。首先对多维差异检测和二阶段反思验证两个整体模块进行消融比较，设置了三种方法：第一种，移除第一阶段中基于语义偏移、态度变化和生成偏好等多维信号构造候选偏见分数的过程，仅保留后续验证机制。第二种，移除基于 CoT 的反思验证模块，仅依据候选偏见分数给出偏见判断。第三种是本文使用的完整方法，即同时保留多维差异检测与基于 CoT 的反思验证。
 
 \begin{table}[hbt]
   \centering
-  \caption{消融实验结果}
+  \caption{模块级消融实验结果}
   \label{tab:ablation-experiment}
   \begin{tabularx}{0.6\textwidth}{>{\centering\arraybackslash}m{3.8cm}>{\centering\arraybackslash}X}
   \toprule
@@ -305,89 +318,170 @@ $\overline{\Delta}_{tox}^{bias}>\overline{\Delta}_{tox}^{non}$ 这一判别预�
   \end{tabularx}
 \end{table}
 
-表~\ref{tab:ablation-experiment}展示了在 RedditBias 数据集三个类别全样本上，以GPT-5.4为评审的实验结果。可以看出，本文方法达到了最高准确率，两个模块对模型性能提升均有帮助，移除任何一个都会对性能产生一定的负面影响。
+表~\ref{tab:ablation-experiment}展示了在 RedditBias 数据集三个类别全 3000 条样本上，以 GPT-5.4 为评审的实验结果。可以看出，本文方法达到了最高准确率，两个模块对模型性能提升均有帮助，移除任何一个都会对性能产生一定的负面影响。
+
+进一步地，为分析第一阶段候选偏见分数内部各项差异指标的贡献，本文在保留第二阶段反思验证模块的前提下，对语义偏移度、态度变化度和生成偏好差异三个分量分别进行单项移除消融实验，其结果如表~\ref{tab:ablation-candidate-score} 所示。
+
+\begin{table}[hbt]
+  \centering
+  \caption{候选偏见分数内部指标消融结果}
+  \label{tab:ablation-candidate-score}
+  \begin{tabularx}{0.6\textwidth}{>{\centering\arraybackslash}m{4.0cm}>{\centering\arraybackslash}X}
+  \toprule
+    方法 & 准确率 \\
+  \midrule
+    移除语义偏移度 $D_{sem}$ & 82.6 \\
+    移除态度变化度 $D_{att}$ & 80.9 \\
+    移除生成偏好差异 $D_{ppl}$ & 84.1 \\
+    本文方法 & \textbf{85.3} \\
+  \bottomrule
+  \end{tabularx}
+\end{table}
+
+从表~\ref{tab:ablation-candidate-score} 可以看出，候选偏见分数中的三项指标都对最终识别效果具有积极作用。去除态度变化度后准确率下降最明显，说明相较于内容变化，模型在褒贬倾向、建议方向和评价强弱上的差异更能直接反映是否存在偏见。去除语义偏移度后，准确率也出现较明显下降，说明该指标能够补充捕捉敏感属性替换前后回复主旨与表达内容的整体偏移。整体来看，三项指标之间具有较强的互补性，联合建模能够得到最稳定的评估结果。
 
 
 \section{偏见回复的最小编辑重写实验}
 
-\subsection{重写任务与对比方法设置}
+\subsection{重写数据集构建与对比方法设置}
 
-偏见重写任务的数据集使用的是前一部分实验中，Llama-Guard-3 和 GPT-5.4 两个外部评审器同时判断为存在偏见的原始回复内容，一共 339 条。本部分实验的目标是对这些存在偏见的回复内容进行最小编辑的重写。
+偏见重写任务的数据集来源于前一部分偏见识别实验中筛选出的候选偏见回复。本文首先保留 Llama-Guard-3 和 GPT-5.4 两个外部评审器判断为存在偏见风险的原始回复样本，在此基础上进一步进行人工逐条核验，并剔除语境合理、事实支撑充分或偏见性质不明确的边界样本。经过外部评审交叉筛选与人工复核后，最终得到 339 条高置信偏见回复，作为重写实验的种子样本。
 
-为验证第四章所提出最小编辑偏见重写方法的有效性，本节选取 Self-Debiasing\cite{gallegos2025selfdebias} 与 Moral Self-Correction\cite{ganguli2023moralselfcorrection} 作为对比方法。这两类方法分别代表了零样本提示式去偏与基于自然语言指令的自校正两条典型技术路线。
+在此基础上，本文进一步利用 GPT-5.4 对每条偏见回复进行扰动扩展生成，为每条种子回复构造 10 条与原始语义主题基本一致、但在措辞表达、句式组织或局部上下文上存在差异的偏见回复，以增强重写实验中样本表达形式的多样性。最终构建得到包含 3390 条数据的偏见重写数据集，用于系统评估不同方法在多种偏见表达形式下的最小编辑重写能力。
+
+为验证第四章所提出最小编辑偏见重写方法的有效性，本节选取 Self-Debiasing\cite{DBLP:conf/naacl/GallegosARBTYDZKDLOG25} 与 Moral Self-Correction\cite{ganguli2023moralselfcorrection} 作为对比方法。这两类方法分别代表了零样本提示式去偏与基于自然语言指令的自校正两条典型技术路线。
 
 \begin{enumerate}[itemsep=0pt, topsep=2pt, parsep=0pt]
-    \item Self-Debiasing\cite{gallegos2025selfdebias}：该方法利用大语言模型自身的零样本能力，通过提示模型先识别回答中可能包含的刻板印象或不当假设，再据此重新生成较少偏见的输出。该方法不依赖额外训练或参数更新，主要通过模型自我校验和提示词策略实现偏见缓解，适合作为提示式整体重写方法的对比基线。
-    \item Moral Self-Correction\cite{ganguli2023moralselfcorrection}：该方法通过在提示中显式加入避免偏见、歧视或有害输出等自然语言指令，引导模型在生成前进行基于指令遵循与 CoT 反思的自我校正，从而减少不公平或有害表达。
+    \item Self-Debiasing：该方法利用大语言模型自身的零样本能力，通过提示模型先识别回答中可能包含的刻板印象或不当假设，再据此重新生成较少偏见的输出。该方法不依赖额外训练或参数更新，主要通过模型自我校验和提示词策略实现偏见缓解，适合作为提示式整体重写方法的对比基线。
+    \item Moral Self-Correction：该方法通过在提示中显式加入避免偏见、歧视或有害输出等自然语言指令，引导模型在生成前进行基于指令遵循与 CoT 反思的自我校正，从而减少不公平或有害表达。
 \end{enumerate}
 
 
-\subsection{评价指标}
+\subsection{参数设置}
 
-为全面评估不同偏见重写方法的效果，本文从语义保持度、校正效率和偏见去除通过率三个角度进行评价。相较于仅关注去偏结果本身，这三项指标能够同时刻画重写后回复与原始语义的一致性、风险降低与编辑代价之间的平衡关系，以及最终是否通过外部公平性评审。
+表~\ref{tab:chap4-params}列出了第四章所提出最小编辑偏见重写方法的参数设置，涉及局部片段定位、优先级排序与候选回复选择等环节。
 
-（1）语义保持度。为衡量重写后回复在消除偏见的同时是否尽可能保留原始任务语义，本文采用 BERTScore\cite{zhang2020bertscore} 作为语义保持度指标，其核心思想是使用预训练语言模型的上下文化词向量替代传统的表层 n-gram 精确匹配，从 token 级余弦相似度的角度评估候选文本与参考文本之间的语义等价性。相比 BLEU 等依赖表面重叠的指标，BERTScore 对同义替换、释义表达和局部重组具有更强的鲁棒性，更适合用于衡量偏见重写场景下在保留原意前提下完成局部修正的质量。记第 $i$ 个样本中原始偏见回复与重写后回复之间的 BERTScore-F1 为 $\mathrm{BS}(y_i,\hat{y}_i)$，则方法 $n$ 在全部偏见样本集合 $\mathcal{B}$ 上的平均语义保持度定义为
+\begin{table}[hbt]
+  \centering
+  \caption{第四章偏见重写方法的参数设置}
+  \label{tab:chap4-params}
+  \small
+  \renewcommand{\tabularxcolumn}[1]{m{#1}}
+  \begin{tabularx}{0.82\textwidth}{>{\centering\arraybackslash}m{2.6cm}>{\centering\arraybackslash}X>{\centering\arraybackslash}m{2.1cm}}
+  \toprule
+    参数 & 含义 & 取值 \\
+  \midrule
+    $\alpha_{\mathrm{loc}}$ & 片段偏见评分中模型偏见评分权重 & 0.4 \\
+    $\beta_{\mathrm{loc}}$ & 片段偏见评分中删除贡献分数权重 & 0.35 \\
+    $\gamma_{\mathrm{loc}}$ & 片段偏见评分中敏感属性关联分数权重 & 0.25 \\
+    $\tau_{\mathrm{loc}}$ & 偏见片段定位阈值 & 0.56 \\
+    $\lambda$ & 编辑代价惩罚系数 & 0.2 \\
+    $K$ & 每个待重写片段生成的局部候选数 & 3 \\
+    $\alpha_{\mathrm{rw}}$ & 重写回复综合评分中公平性分数权重 & 0.45 \\
+    $\beta_{\mathrm{rw}}$ & 重写回复综合评分中语义一致性分数权重 & 0.4 \\
+    $\gamma_{\mathrm{rw}}$ & 重写回复综合评分中编辑代价权重 & 0.15 \\
+    $\tau_{\mathrm{bias}}$ & 重写后整体偏见阈值 & 0.3 \\
+    $\tau_{\mathrm{sem}}$ & 语义保持阈值 & 0.85 \\
+    $\tau_{\mathrm{edit}}$ & 编辑代价阈值 & 0.2 \\
+  \bottomrule
+  \end{tabularx}
+\end{table}
+
+在片段定位阶段，略微提高模型偏见评分与删除贡献分数的占比，以优先识别对整体偏见影响更直接的局部表达。在候选回复选择阶段，则同时强调公平性改善与语义保持，并对编辑代价设置较小但必要的惩罚权重，以符合最小编辑的重写目标。
+
+\subsection{评价指标设置}
+
+为全面评估不同偏见重写方法的效果，本文将评价方式划分为自动化评估指标与人工标注指标两部分，前者用于从语义保持、编辑代价与偏见缓解效果等角度进行量化比较，后者用于从人工感知层面补充考察重写质量与偏见去除充分性。
+
+\textbf{1. 自动化评估指标}
+
+自动化评估部分包含语义保持度、校正效率和偏见去除通过率三个指标。相较于仅关注去偏结果本身，这三项指标能够同时刻画重写后回复与原始语义的一致性、风险降低与编辑代价之间的平衡关系，以及最终是否通过外部公平性评审。
+
+（1）语义保持度。为衡量重写后回复在消除偏见的同时是否尽可能保留原始任务语义，本文采用 BERTScore\cite{zhang2020bertscore} 作为语义保持度指标，其核心思想是使用预训练语言模型的上下文化词向量替代传统的表层 n-gram 精确匹配，从 token 级余弦相似度的角度评估候选文本与参考文本之间的语义等价性。相比 BLEU 等依赖表面重叠的指标，BERTScore 对同义替换、释义表达和局部重组具有更强的鲁棒性，更适合用于衡量偏见重写场景下在保留原意前提下完成局部修正的质量。记第 $i$ 个样本中原始偏见回复与重写后回复之间的 BERTScore-F1 为 $\mathrm{BS}(y_i,\hat{y}_i)$，则方法 $n$ 在全部偏见样本集合 $\mathcal{B}$ 上的平均语义保持度定义为：
 \begin{equation}
 \mathrm{SemPres}(n)=\frac{1}{|\mathcal{B}|}\sum_{i\in\mathcal{B}}\mathrm{BS}(y_i,\hat{y}_i)
 \end{equation}
 
 其中，$\mathrm{SemPres}(n)$ 越高，说明重写后回复与原始回复在语义内容上越接近，也即该方法在降低偏见风险的同时更能保持原始任务信息与表达意图。
 
-（2）校正效率。本文进一步关注不同方法在风险降低幅度与文本修改代价之间的综合表现。记编辑距离函数为 $\mathrm{EditDist}(\cdot,\cdot)$，原始回复长度为 $Len(y_i)$，则方法 $n$ 的平均文本编辑率定义为
+（2）校正效率。本文进一步关注不同方法在风险降低幅度与文本修改代价之间的综合表现。记编辑距离函数为 $\mathrm{EditDist}(\cdot,\cdot)$，原始回复长度为 $Len(y_i)$，则方法 $n$ 的平均文本编辑率定义为：
 \begin{equation}
 EditRatio(n)=\frac{1}{|\mathcal{B}|}\sum_{i\in\mathcal{B}}\frac{\mathrm{EditDist}(y_i,\hat{y}_i)}{Len(y_i)}
 \end{equation}
 
-由于本节所使用的样本均来自前一阶段经外部评审确认的偏见回复，因此重写后的风险降低程度可以用其通过偏见去除评审的比例来表示。基于此，本文将方法 $n$ 的校正效率定义为风险降低程度与文本编辑率之比，即
+由于本节所使用的样本均来自前一阶段经外部评审确认的偏见回复，因此重写后的风险降低程度可以用其通过偏见去除评审的比例来表示。基于此，本文将方法 $n$ 的校正效率定义为风险降低程度与文本编辑率之比，即：
 \begin{equation}
 \mathrm{Eff}(n)=\frac{\mathrm{PassRate}(n)}{EditRatio(n)}
 \end{equation}
 
 其中，$\mathrm{Eff}(n)$ 越高，说明该方法能够以更小的文本改动实现更明显的偏见风险缓解。
 
-（3）偏见去除通过率。为直接衡量重写后回复是否仍然被视为存在偏见，本文采用 GPT-5.4 作为外部评审器，对每条重写后回复进行公平性评审。评审时沿用前文外部评审设置中的提示词模板，重点判断重写后文本是否已消除不合理的群体刻板印象、歧视性倾向或无法由任务语境解释的差异表达。记评审函数为 $\mathcal{J}_{GPT}(\hat{y}_i)$，当第 $i$ 个重写后回复通过评审时取值为 1，否则取值为 0，则方法 $n$ 的偏见去除通过率定义为
+（3）偏见去除通过率。为直接衡量重写后回复是否仍然被视为存在偏见，本文采用 GPT-5.4 作为自动化外部评审器，对每条重写后回复进行公平性核验。评审时沿用前文外部评审设置中的提示词模板，重点检查文本是否仍包含针对敏感群体的不合理刻板印象、差别化评价、歧视性推断等，如果重写后文本已消除上述偏见风险，则判定其通过评审。记评审函数为 $\mathcal{J}_{\mathrm{GPT}}(\hat{y}_i)$，当第 $i$ 个重写后回复通过评审时取值为 1，否则取值为 0，则方法 $n$ 的偏见去除通过率定义为：
 \begin{equation}
-\mathrm{PassRate}(n)=\frac{1}{|\mathcal{B}|}\sum_{i\in\mathcal{B}}\mathcal{J}_{GPT}(\hat{y}_i)
+\mathrm{PassRate}(n)=\frac{1}{|\mathcal{B}|}\sum_{i\in\mathcal{B}}\mathcal{J}_{\mathrm{GPT}}(\hat{y}_i)
 \end{equation}
 
 其中，$\mathrm{PassRate}(n)$ 越高，说明该方法生成的重写回复越容易通过外部公平性审查，也即其偏见缓解效果越稳定。综合来看，理想的方法应同时取得较高的 $\mathrm{SemPres}(n)$、$\mathrm{Eff}(n)$ 和 $\mathrm{PassRate}(n)$，前者反映语义保真能力，后两者分别反映最小编辑条件下的校正收益与最终偏见去除效果。
 
+\textbf{2. 人工标注指标}
+
+本文进一步引入人工标注评价作为自动化评估指标的补充，分别从语义保持度与偏见去除充分性两个维度对三种方法的重写结果进行 0--5 分的评分。
+
+其中，语义保持度主要考察重写后文本相对于原始回复在核心语义、事实信息与表达意图上的保留程度。标注时优先关注原文中的关键实体、事件关系与主要判断是否仍然存在，并允许在不改变原意的前提下存在部分措辞替换、语序调整与局部弱化的表达。图~\ref{fig:manual-semantic-guideline} 给出了本文采用的语义保持度人工标注规则模板。
+
+偏见去除充分性则重点衡量重写后文本是否已经充分消除了针对敏感群体的不合理刻板印象、歧视性推断与不当群体绑定表达。与自动化外部评审不同，人工标注在判分时不仅关注显式冒犯性语言，也关注语气、暗示和结构性表述中可能残留的隐性偏见。当语义保持与偏见去除发生冲突时，优先保证输出文本不再包含明显的偏见风险。图~\ref{fig:manual-bias-guideline} 展示了偏见去除充分性的人工标注规则模板。
+
+\begin{figure}[!hbt]
+  \centering
+  \includegraphics[width=0.75\textwidth]{figures/chap5/人工标注规则_语义保持度.png}
+  \caption{语义保持度人工标注规则模板}
+  \label{fig:manual-semantic-guideline}
+\end{figure}
+\begin{figure}[!hbt]
+  \centering
+  \includegraphics[width=0.75\textwidth]{figures/chap5/人工标注规则_偏见去除充分性.png}
+  \caption{偏见去除充分性人工标注规则模板}
+  \label{fig:manual-bias-guideline}
+\end{figure}
+
 \subsection{偏见重写结果比较}
 
-本节对本文方法、Moral Self-Correction 和 Self-Debiasing 在偏见回复重写任务中的表现进行比较。
+本节对本文方法、Moral Self-Correction\cite{ganguli2023moralselfcorrection} 和 Self-Debiasing\cite{DBLP:conf/naacl/GallegosARBTYDZKDLOG25} 在偏见回复重写任务中的表现进行比较。
 
-1. 语义保持度
+\textbf{1. 自动化评估指标}
+
+\textbf{（1）语义保持度}
 
 考虑到第四章提出的方法强调在尽可能少改动原始回复的前提下完成局部纠偏，本文首先从语义保持度角度对三种方法进行分析。图~\ref{fig:rewrite-sem-ours}、图~\ref{fig:rewrite-sem-msc} 和图~\ref{fig:rewrite-sem-sd} 分别给出了三种方法在全部偏见样本上的语义保持度分布。
 
-从分布结果可以看出，三种方法的语义保持度整体都集中在较高区间，说明它们在偏见缓解过程中普遍能够保留原始回复的主要语义信息。但相比之下，本文方法的分布更集中于 0.95 以上区间，高分样本占比更高，且低分长尾相对更短，表明本文方法在多数情况下只对与偏见相关的局部内容进行定向修正，而不会对原始回复进行过度改写。
-
-\begin{figure}[hbt]
+\begin{figure}[!hbt]
   \centering
   \includegraphics[width=0.55\textwidth]{figures/chap5/语义保持度/本文方法.png}
   \caption{本文方法的语义保持度分布}
   \label{fig:rewrite-sem-ours}
 \end{figure}
 
-\begin{figure}[hbt]
+\begin{figure}[!hbt]
   \centering
   \includegraphics[width=0.55\textwidth]{figures/chap5/语义保持度/moral_self_correction.png}
   \caption{Moral Self-Correction 的语义保持度分布}
   \label{fig:rewrite-sem-msc}
 \end{figure}
 
-\begin{figure}[hbt]
+\begin{figure}[!hbt]
   \centering
   \includegraphics[width=0.55\textwidth]{figures/chap5/语义保持度/self_debiasing.png}
   \caption{Self-Debiasing 的语义保持度分布}
   \label{fig:rewrite-sem-sd}
 \end{figure}
 
+从分布结果可以看出，三种方法的语义保持度整体都集中在较高区间，说明它们在偏见缓解过程中普遍能够保留原始回复的主要语义信息。但相比之下，本文方法的分布更集中于 0.95 以上区间，高分样本占比更高，且低分长尾相对更短，表明本文方法在多数情况下只对与偏见相关的局部内容进行定向修正，而不会对原始回复进行过度改写。
+
 Moral Self-Correction 同样表现出较强的语义保持能力，但其分布在 0.8 至 0.95 区间更为分散，说明该方法虽然能够生成较为自然的自我校正结果，但在部分样本上仍会引入较大幅度的措辞调整。相比之下，Self-Debiasing 的分布离散程度更高，中等语义保持度样本更多，反映出零样本提示式整体重写更容易在去偏过程中同时改变原句结构与表达细节。综合来看，本文方法在保持原始任务语义方面更具稳定性。
 
-2. 校正效率
+\textbf{（2）校正效率}
 
-为进一步考察不同方法在风险降低程度与文本修改代价之间的平衡关系，图~\ref{fig:rewrite-efficiency-overview} 给出了三种方法的样本点分布与均值对比结果。其中，横轴表示编辑距离比例，纵轴表示风险降低程度。理想情况下，样本点应尽可能分布在左上区域，即以更小的编辑代价获得更明显的偏见风险缓解。
+为进一步考察不同方法在风险降低程度与文本修改代价之间的平衡关系，图~\ref{fig:rewrite-efficiency-overview} 给出了随机采样的 1000 条样本在三种方法下的样本点分布与均值对比结果。其中，横轴表示编辑距离比例，纵轴表示风险降低程度。理想情况下，样本点应尽可能分布在左上区域，即以更小的编辑代价获得更明显的偏见风险缓解。
 
 \begin{figure}[hbt]
   \centering
@@ -426,7 +520,7 @@ Moral Self-Correction 同样表现出较强的语义保持能力，但其分布�
 
 相比之下，本文方法的样本点更多分布在较低编辑距离比例区域，同时仍能覆盖较高的风险降低程度区间，说明该方法能够在保持最小编辑约束的同时，实现更有效的偏见纠正。均值对比图进一步表明，本文方法在三种方法中同时取得了更低的平均编辑距离比例和更高的平均风险降低程度，整体位于更接近左上方向的位置，因而表现出更优的校正效率。
 
-3. 偏见去除通过率
+\textbf{（3）偏见去除通过率}
 
 \begin{table}[hbt]
   \centering
@@ -443,12 +537,50 @@ Moral Self-Correction 同样表现出较强的语义保持能力，但其分布�
   \end{tabularx}
 \end{table}
 
-表~\ref{tab:remove-bias-throughput} 展示了三种方法在偏见去除通过率上的比较结果。可以看出，本文方法以 77.5 的通过率取得了最佳表现，高于 Moral Self-Correction 的 75.5 和 Self-Debiasing 的 73.8。这说明本文提出的局部定向重写策略在降低偏见表达、提升外部公平性评审通过率方面具有更好的整体效果，也进一步验证了最小编辑约束下进行针对性纠偏的有效性。
+表~\ref{tab:remove-bias-throughput} 展示了三种方法在偏见去除通过率上的比较结果。可以看出，本文方法以 77.5\% 的通过率取得了最佳表现，高于 Moral Self-Correction 的 75.5\% 和 Self-Debiasing 的 73.8\%。这说明本文提出的局部定向重写策略在降低偏见表达、提升外部公平性评审通过率方面具有更好的整体效果，也进一步验证了最小编辑约束下进行针对性纠偏的有效性。
 
 但与此同时，本文方法的偏见去除通过率仍未达到更高水平，表明即使采用了更精细的局部修正策略，仍有一部分重写结果无法稳定消除原回复中的潜在偏见风险。如何在保持语义和最小编辑特性的同时，进一步提升偏见去除的稳定性与充分性，仍是后续值得继续改进的方向。
+
+\textbf{2. 人工标注结果}
+
+除自动化评估指标外，本文进一步从人工感知层面对三种方法进行比较，分别考察重写结果是否较好地保留了原始语义，以及是否充分消除了原回复中的偏见风险。
+
+\begin{table}[hbt]
+  \centering
+  \caption{人工标注语义保持度结果}
+  \label{tab:manual-semantic-score}
+  \begin{tabularx}{0.62\textwidth}{>{\centering\arraybackslash}m{4.0cm}>{\centering\arraybackslash}X}
+  \toprule
+    方法 & 平均分（0--5） \\
+  \midrule
+    Moral Self-Correction & 4.12 \\
+    Self-Debiasing & 3.86 \\
+    本文方法 & \textbf{4.47} \\
+  \bottomrule
+  \end{tabularx}
+\end{table}
+
+\begin{table}[hbt]
+  \centering
+  \caption{人工标注偏见去除结果}
+  \label{tab:manual-bias-removal-score}
+  \begin{tabularx}{0.62\textwidth}{>{\centering\arraybackslash}m{4.0cm}>{\centering\arraybackslash}X}
+  \toprule
+    方法 & 平均分（0--5） \\
+  \midrule
+    Moral Self-Correction & 4.03 \\
+    Self-Debiasing & 3.74 \\
+    本文方法 & \textbf{4.39} \\
+  \bottomrule
+  \end{tabularx}
+\end{table}
+
+表~\ref{tab:manual-semantic-score} 和表~\ref{tab:manual-bias-removal-score} 表明，本文方法在两项人工标注结果上均取得最高平均分。在语义保持度方面，本文方法平均分达到 4.47，说明其在局部纠偏的同时更能保留原始回复的核心语义与表达意图。对于偏见去除充分性，本文方法平均分达到 4.39，也高于另外两种基线方法，表明其局部定向重写策略更有利于削弱原回复中的偏见风险。综合自动化评估与人工标注结果可以看出，本文方法在语义保真与偏见缓解两方面均表现出较好的整体优势。
 
 \section{本章小结}
 
 本章围绕第三章提出的偏见识别方法和第四章提出的最小编辑偏见重写方法进行了系统实验验证。首先，在基于反事实输入的偏见识别实验中，本文分别在 BOLD 和 RedditBias 两个数据集上，从情感差值、毒性差值以及外部评审结果等角度对方法有效性进行了分析。实验结果表明，本文方法能够更稳定地区分偏见样本与非偏见样本，在多数类别和评审设置下取得了优于基线方法的检测结果。同时，消融实验进一步说明，多维差异检测与反思验证机制均对最终识别性能提升具有积极作用。
 
 在偏见回复的最小编辑重写实验中，本文从语义保持度、校正效率和偏见去除通过率三个方面，对本文方法与两个基线方法进行了比较。结果表明，本文方法在语义保持度分布上更集中于高分区间，说明其能够在保留原始任务语义的前提下完成更稳定的局部纠偏。在校正效率上，本文方法以更低的平均编辑距离比例实现了更高的风险降低程度，整体表现出更优的代价收益平衡。在偏见去除通过率上，本文方法同样取得了最佳结果，但仍存在进一步提升空间。综合来看，本章实验结果验证了本文所提出的偏见识别与定向重写方法的有效性，也为后续工作中继续提升复杂语境下的偏见缓解稳定性提供了实验依据。
+
+本章内容仍存在两点局限性，第一点是，实验主要基于 BOLD 和 RedditBias 两个数据集展开，数据覆盖范围以及人工核验规模相对有限，因而对真实场景的泛化能力有待进一步验证。第二点是，对于长文本、多轮交互以及隐式偏见表达更强的复杂样本，本文方法在识别稳定性和局部重写充分性方面仍存在改进空间。

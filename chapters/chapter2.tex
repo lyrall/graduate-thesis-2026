@@ -1,18 +1,18 @@
-\chapter{相关理论与技术研究}
+\chapter{相关理论与技术}
 
 \section{大语言模型偏见与公平性的基本理论}
 
 \subsection{大语言模型生成机制概述}
 
-大语言模型是一类基于 Transformer 架构的自回归、自动编码或编码器--解码器模型，通常在大规模文本语料上进行预训练，以学习词语之间的条件概率分布及更高层次的语义表示\cite{vaswani2017attention,openai2023gpt4,grattafiori2024llama3,DBLP:journals/coling/GallegosRBTKDYZA24}。在生成阶段，模型以用户输入的 prompt 为条件，逐步预测下一个 token 的概率分布，并通过贪心搜索、束搜索或随机采样等解码策略生成最终回复。
+大语言模型是一类基于 Transformer 架构的自回归、自动编码或编码器--解码器模型，通常在大规模文本语料上进行预训练，以学习词语之间的条件概率分布及更高层次的语义表示\cite{openai2023gpt4,grattafiori2024llama3,DBLP:journals/coling/GallegosRBTKDYZA24}。在生成阶段，模型以用户输入的提示词为条件，逐步预测下一个词元（token）的概率分布，并通过贪心搜索（greedy search）、集束搜索（beam search）或随机采样等解码策略生成最终回复。
 
 大语言模型的输出不仅由用户输入的显式问题决定，还会受到上下文结构、措辞风格、角色设定、系统提示以及模型在预训练与对齐阶段内化的知识和价值倾向的共同影响\cite{liang2022helm}。因此，模型生成结果本质上是输入语义、训练语料分布、目标函数以及解码策略共同作用的产物，而不是对单一问题的机械映射。
 
-当 prompt 中包含与性别、种族、年龄、宗教、国籍等社会属性相关的信息时，模型可能在建议方向、态度评价、信息完整性和表达方式等方面产生差异性输出。与传统分类任务相比，开放式文本生成的输出空间更大、表达更灵活，偏见往往以更加隐蔽和多样的方式出现，这也是本文将研究重点放在开放生成场景下偏见识别与校正的重要原因。
+当提示词中包含与性别、种族、年龄、宗教、国籍等社会属性相关的信息时，模型可能在建议方向、态度评价、信息完整性和表达方式等方面产生差异性输出\cite{JSJA202504028}。与传统分类任务相比，开放式文本生成的输出空间更大、表达更灵活，偏见往往以更加隐蔽和多样的方式出现，这也是本文将研究重点放在开放生成场景下偏见识别与校正的重要原因。
 
 \subsection{敏感属性与偏见回复的基本概念}
 
-敏感属性是指能够表征个体或群体身份特征，并可能触发不公平对待的属性，典型例子包括性别、种族、年龄、宗教信仰、国籍和残障状况等\cite{kusner2017counterfactual,blodgett2020bias}。这些属性在理想情况下不应对无关任务的输出结论产生决定性影响，但在实际模型输出中常常成为不公平差异的来源。
+敏感属性是指能够表征个体或群体身份特征，并可能触发不公平对待的属性，典型例子包括性别、种族、年龄、宗教信仰、国籍和残障状况等\cite{blodgett2020bias}。这些属性在理想情况下不应对无关任务的输出结论产生决定性影响，但在实际模型输出中常常成为不公平差异的来源。
 
 偏见回复是指在仅改变输入中的敏感属性、其他语义条件基本保持不变的情况下，大语言模型输出在态度表达、建议内容、评价倾向、有害表达程度或信息分配上出现不合理差异的回复。需要说明的是，不应将所有因敏感属性变化而产生的输出差异都视为偏见。某些情况下，任务本身的语义要求模型给出属性相关的差异化回答，这类差异具有合理的任务解释。图~\ref{fig:sensitive-attribute-bias-response} 展示了敏感属性与偏见回复之间的关系：当输入中的性别属性发生变化而任务语义保持基本一致时，模型的输出随之出现缺乏合理依据的显著差异，则可将其视为偏见回复的典型表现。本文重点关注那些无法由任务语义合理解释、且可能带来不公平影响的输出差异。
 
@@ -26,13 +26,13 @@
 
 \subsection{公平性概念与判别准则}
 
-公平性并不意味着模型必须对所有群体给出完全相同的输出，而是要求模型输出中的差异应当具有任务语义上的正当依据，并尽量避免对敏感属性产生不合理依赖\cite{kusner2017counterfactual,DBLP:journals/coling/GallegosRBTKDYZA24}。在机器学习公平性研究中，常见框架包括群体公平性与个体公平性：前者关注不同社会群体在整体统计意义上的结果差异，后者关注语义相近样本是否获得一致对待。迁移到大语言模型场景后，这两类思想仍然重要，但需要结合语言任务的开放性、语境依赖性和多解性加以重新理解。
+公平性并不意味着模型必须对所有群体给出完全相同的输出，而是要求模型输出中的差异应当具有任务语义上的正当依据，并尽量避免对敏感属性产生不合理依赖\cite{DBLP:journals/coling/GallegosRBTKDYZA24}。在机器学习公平性研究中，常见框架包括群体公平性与个体公平性：前者关注不同社会群体在整体统计意义上的结果差异，后者关注语义相近样本是否获得一致对待。迁移到大语言模型场景后，这两类思想仍然重要，但需要结合语言任务的开放性和语境依赖性加以重新理解。
 
 对于生成任务而言，公平性的判别通常需要同时满足以下几项准则。第一，任务相关性准则，即只有当敏感属性与任务目标无关时，模型才应尽量保持输出稳定；第二，反事实一致性准则，即在只替换敏感属性而不改变其余语义条件时，模型输出不应出现无法解释的显著偏移；第三，伤害最小化准则，即模型应尽可能减少冒犯性、污名化和不公平对待等有害表达；第四，效用保持准则，即公平性改进不应以大幅牺牲事实性、可用性和任务完成质量为代价\cite{DBLP:journals/coling/GallegosRBTKDYZA24,chu2024fairness}。这几项准则共同构成了后续偏见评测、偏见识别与输出校正的判断基础。
 
 \subsection{大语言模型偏见来源分析}
 
-大语言模型偏见是在数据、表示、训练、对齐和部署等多个阶段逐步积累并外化的结果。其中最基础也最普遍的来源是训练数据。大语言模型依赖海量网络语料、书籍、论坛和对话数据进行预训练，这些数据本身就包含现实社会中的长期不平等、群体刻板印象和语言分布失衡。如果某些群体在语料中长期被负面描述、被边缘化，或者样本量明显不足，模型就会在统计学习过程中将这种偏差内化为生成倾向\cite{DBLP:journals/coling/GallegosRBTKDYZA24,chu2024fairness,DBLP:conf/fat/BenderGMS21,DBLP:conf/emnlp/DodgeSMAIGM021}。因此，训练语料的来源、覆盖范围、清洗策略和代表性，直接决定了模型偏见的初始分布。
+大语言模型偏见是在数据、表示、训练、对齐和部署等多个阶段逐步积累并外化的结果。其中最基础也最普遍的来源是训练数据。大语言模型依赖海量网络语料、书籍、论坛和对话数据进行预训练，这些数据本身就包含现实社会中的长期不平等、群体刻板印象和语言分布失衡。如果某些群体在语料中长期被负面描述、被边缘化，或者样本量明显不足，模型就会在统计学习过程中将这种偏差内化为生成倾向\cite{DBLP:journals/coling/GallegosRBTKDYZA24,chu2024fairness,DBLP:conf/fat/BenderGMS21,DBLP:conf/emnlp/DodgeSMAIGM021}。因此，训练语料的来源、覆盖范围、清洗策略和代表性，直接决定了模型偏见的分布。
 
 第二类来源体现在模型表示与训练机制本身。即使不考虑显式歧视性语料，词向量、上下文化表示和参数化语义空间也可能在统计关联中学习到例如“职业-性别”“族群-危险性”“年龄-能力”等隐含对应关系，并在后续任务中持续放大这些联系。同时，大语言模型通常以下一个词预测为核心训练目标，其优化过程优先追求整体似然和生成流畅性，而不会天然约束公平性。当训练目标、损失函数和解码策略更偏向于利用高频相关模式时，模型就可能借助带有偏见的统计捷径完成预测。
 
@@ -41,7 +41,7 @@
 此外，部署阶段的提示词写法、对话上下文、系统提示、外部工具调用和评测基准选择，也都会影响偏见的呈现方式。偏见还可能在评测和部署生命周期中被进一步放大，例如基准数据集本身缺乏代表性、评测指标与真实伤害之间对应关系不足，都会导致研究者对模型公平状况形成片面判断\cite{DBLP:journals/coling/GallegosRBTKDYZA24}。因此，大语言模型偏见应被视为贯穿全生命周期的系统性问题，而非某个单独模块的局部缺陷。
 
 
-\section{大语言模型偏见评测技术研究}
+\section{大语言模型偏见评测技术}
 
 \subsection{偏见评测任务的形式化定义}
 
@@ -61,11 +61,11 @@
     \label{fig:bias-eval-task-definition}
 \end{figure}
 
-在社会偏见评测中，常见做法是围绕敏感属性构造原始输入 $x_i$ 与反事实输入 $x_j$，二者在任务语义主体上应尽量保持一致，仅在社会群体属性上发生替换，如性别、种族、年龄或宗教等。如果模型对两者的输出差异超过任务本身所允许的合理范围，则可认为模型存在潜在偏见。基于这一思想，现有研究逐步形成了三类主流评测方法：基于表示空间的嵌入评测、基于条件概率的偏好评测以及基于生成文本的输出行为评测。三类方法分别对应模型内部的不同层次，适用范围、可解释性与局限性也有所不同。
+在社会偏见评测中，常见做法是围绕敏感属性构造原始输入 $x_i$ 与反事实输入 $x_j$，二者在任务语义主体上应尽量保持一致，仅在社会群体属性上发生替换，如性别、种族、年龄或宗教等。如果模型对两者的输出差异超过任务本身所允许的合理范围，则可认为模型存在潜在偏见。基于这一思想，现有研究逐步形成了三类主流评测方法：基于表示空间的嵌入评测、基于条件概率的偏好评测以及基于生成文本的输出行为评测。三类方法分别对应模型内部的不同层次，适用范围、可解释性与局限性也有所不同，下面的小节将展开进行介绍。
 
 \subsection{基于表示空间的偏见评测}
 
-基于表示空间的评测方法通过分析敏感群体词与属性词在向量表示空间中的相对位置关系，刻画模型内部是否存在稳定的群体属性关联。如果某一群体词在嵌入空间中更接近某类属性词，则说明模型可能已经编码了相应的刻板印象或偏见关联\cite{DBLP:journals/coling/GallegosRBTKDYZA24,DBLP:conf/naacl/MayWBBR19,DBLP:conf/nips/TanC19,DBLP:conf/aies/GuoC21,DBLP:journals/dase/DolciAT23}。
+基于表示空间的评测方法通过分析敏感群体词与属性词在向量表示空间中的相对位置关系，刻画模型内部是否存在稳定的群体属性关联。如果某一群体词在嵌入空间中更接近某类属性词，说明模型可能已经编码了相应的刻板印象或偏见关联\cite{DBLP:journals/coling/GallegosRBTKDYZA24,DBLP:conf/naacl/MayWBBR19,DBLP:conf/nips/TanC19,DBLP:conf/aies/GuoC21,DBLP:journals/dase/DolciAT23}。
 
 假设 $A_1,A_2$ 分别表示两个社会群体词集合，$W_1,W_2$ 表示两类属性词集合，则单个词 $a$ 相对于两类属性词集合的关联差可以表示为：
 \begin{equation}
@@ -158,9 +158,9 @@ s(a,W_1,W_2)=\operatorname{mean}_{w \in W_1}\cos(a,w)-\operatorname{mean}_{w \in
         \toprule
         方法类别 & 所需访问能力 & 代表方法 & 主要优势 & 主要局限 & 黑盒适用性 \\
         \midrule
-        基于表示空间 & 模型嵌入或中间表示 & WEAT、SEAT、CEAT & 计算开销低，表征分析直观 & 下游对应性弱，模板敏感性强 & 低 \\
-        基于条件概率 & token 概率、伪似然或句子打分能力 & LPBS、DisCo、CrowS-Pairs、StereoSet & 偏好刻画直接，比较粒度较细 & 依赖模板构造，开放场景受限 & 中 \\
-        基于生成文本 & 最终文本输出 & SGS、EMT、TP、TF、HONEST & 场景贴近真实，适合实例分析 & 受采样与评分资源影响较大 & 高 \\
+        基于表示空间 & 模型嵌入或中间表示 & WEAT\cite{caliskan2017semantics}、SEAT\cite{DBLP:conf/naacl/MayWBBR19}、CEAT\cite{DBLP:conf/aies/GuoC21} & 计算开销低，表征分析直观 & 下游对应性弱，模板敏感性强 & 低 \\
+        基于条件概率 & token 概率、伪似然或句子打分能力 & LPBS\cite{DBLP:journals/corr/abs-1906-07337}、DisCo\cite{DBLP:journals/corr/abs-2010-06032}、CrowS-Pairs\cite{DBLP:conf/emnlp/NangiaVBB20}、StereoSet\cite{DBLP:conf/acl/NadeemBR20} & 偏好刻画直接，比较粒度较细 & 依赖模板构造，开放场景受限 & 中 \\
+        基于生成文本 & 最终文本输出 & BOLD\cite{DBLP:conf/fat/DhamalaSKKPCG21}、HONEST\cite{DBLP:conf/naacl/NozzaBH21}、BBQ\cite{DBLP:conf/acl/ParrishCNPPTHB22} & 场景贴近真实，适合实例分析 & 受采样与评分资源影响较大 & 高 \\
         \bottomrule
     \end{tabularx}
 \end{table}
@@ -168,7 +168,7 @@ s(a,W_1,W_2)=\operatorname{mean}_{w \in W_1}\cos(a,w)-\operatorname{mean}_{w \in
 表~\ref{tab:bias-eval-compare} 从对模型的访问能力展示了不同评测方法的优势与局限。对于本文关注的黑盒大语言模型而言，生成文本层面的评测虽然噪声更大，但能够直接观察模型在真实交互中的偏见表现，因此更适合作为后续偏见识别与输出校正的基础。
 
 
-\section{大语言模型偏见缓解与输出重写技术研究}
+\section{大语言模型偏见缓解与输出重写技术}
 
 大语言模型偏见缓解方法通常可划分为预处理、训练、推理和后处理四个阶段。它们分别作用于输入数据分布、模型参数学习、在线解码过程以及最终输出文本。图~\ref{fig:bias-rewriting-taxonomy} 中展示了偏见缓解与输出重写方法的阶段性分类，其中后处理阶段直接作用于模型输出，与本文关注的黑盒场景下局部定向重写问题最为相关。
 
@@ -188,7 +188,7 @@ D'=\mathcal{T}_{pre}(D)
 
 其目标是在新数据分布 $D'$ 上降低敏感属性与特定语义标签、情绪倾向或有害表达之间的不当相关性，实现数据在进入模型前的公平性重构。
 
-从技术机制上看，预处理方法主要包括四类。第一类是反事实数据增强，即对原始样本进行敏感属性替换，构造额外样本以平衡不同群体在语义空间中的覆盖。第二类是数据过滤与重加权，即根据毒性、群体词分布或代表性指标对样本进行筛除、采样或赋权。第三类是数据生成，通过人工编写、规则扩展或生成模型合成新的中性或公平训练样本。第四类是输入或指令调控，通过在 prompt 前附加规范性说明、连续前缀或价值约束，引导模型在后续生成中弱化偏见倾向\cite{DBLP:journals/coling/GallegosRBTKDYZA24,DBLP:conf/birthday/LuMWAD20,DBLP:conf/emnlp/MaudslayGCT19,DBLP:conf/acl/GhanbarzadehHPM23,DBLP:conf/emnlp/DinanFWUKW20,DBLP:conf/nips/SolaimanD21}。
+从技术机制上看，预处理方法主要包括四类。第一类是反事实数据增强，即对原始样本进行敏感属性替换，构造额外样本以平衡不同群体在语义空间中的覆盖。第二类是数据过滤与重加权，即根据毒性、群体词分布或代表性指标对样本进行筛除、采样或赋权。第三类是数据生成，通过人工编写、规则扩展或生成模型合成新的中性或公平训练样本。第四类是输入或指令调控，通过在提示词前附加规范性说明、连续前缀或价值约束，引导模型在后续生成中弱化偏见倾向\cite{DBLP:journals/coling/GallegosRBTKDYZA24,DBLP:conf/birthday/LuMWAD20,DBLP:conf/emnlp/MaudslayGCT19,DBLP:conf/acl/GhanbarzadehHPM23,DBLP:conf/emnlp/DinanFWUKW20,DBLP:conf/nips/SolaimanD21}。
 
 预处理方法的优点在于实现相对简单、与具体模型结构弱耦合，并可与后续训练或推理阶段方法叠加使用。但从机制上看，它只能间接改变模型所见分布，而无法保证已学习到的内部偏见表示被彻底消除。此外，反事实替换是否语义等价、重加权是否引入新的样本偏移、规范性提示是否能在所有场景下做到泛化，都是该类方法面临的问题。
 
@@ -201,7 +201,7 @@ D'=\mathcal{T}_{pre}(D)
 
 其中 $\mathcal{L}_{fair}$ 用于惩罚模型对敏感属性的过度依赖，$\lambda$ 控制任务性能与公平性之间的权衡。与预处理方法不同，训练阶段方法直接改变参数更新方向，因此可以更强地作用于内部表示、注意力模式和输出分布。
 
-训练阶段方法大致可以分为三类。第一类表示约束型方法，通过子空间投影、正交约束、互信息最小化或对抗学习，使敏感属性难以从隐藏表示中恢复出来\cite{DBLP:conf/naacl/BordiaB19,DBLP:conf/acl/RavfogelEGTG20,DBLP:conf/acl/LiangLZLSM20,DBLP:conf/icassp/WooNJL23}。第二类目标函数改写型方法，直接对 logits、输出分布、偏见词能量或注意力权重施加公平性正则项，以约束生成行为\cite{DBLP:conf/acl/GuoYA22,DBLP:conf/emnlp/GaciBCB22}。第三类对齐与奖励建模型方法，通过对比学习、偏好建模、强化学习或价值对齐奖励，将减少偏见作为训练信号\cite{DBLP:conf/acl/ZhengK0H23,DBLP:conf/naacl/JinBKDNR21}。
+训练阶段方法大致可以分为三类。第一类表示约束型方法，通过子空间投影、正交约束、互信息最小化或对抗学习，使敏感属性难以从隐藏表示中恢复出来\cite{DBLP:conf/acl/RavfogelEGTG20,DBLP:conf/acl/LiangLZLSM20,DBLP:conf/icassp/WooNJL23}。第二类目标函数改写型方法，直接对 logits、输出分布、偏见词能量或注意力权重施加公平性正则项，以约束生成行为\cite{DBLP:conf/acl/GuoYA22,DBLP:conf/emnlp/GaciBCB22}。第三类对齐与奖励建模型方法，通过对比学习、偏好建模、强化学习或价值对齐奖励，将减少偏见作为训练信号\cite{DBLP:conf/acl/ZhengK0H23,DBLP:conf/naacl/JinBKDNR21}。
 
 \subsection{推理阶段的偏见缓解方法}
 
@@ -242,14 +242,14 @@ y^{*}=\arg\min_{y'} \ \alpha \, \mathrm{Risk}(y') + \beta \, \mathrm{Drift}(y,y'
     \label{tab:bias-mitigation-compare}
     \small
     \renewcommand{\tabularxcolumn}[1]{m{#1}}
-    \begin{tabularx}{\textwidth}{>{\centering\arraybackslash}m{2.0cm}>{\centering\arraybackslash}m{3.0cm}>{\centering\arraybackslash}X>{\centering\arraybackslash}X>{\centering\arraybackslash}m{1.4cm}}
+    \begin{tabularx}{\textwidth}{>{\centering\arraybackslash}m{2.2cm}>{\centering\arraybackslash}m{3.0cm}>{\centering\arraybackslash}X>{\centering\arraybackslash}X>{\centering\arraybackslash}m{1.4cm}}
         \toprule
         方法类别 & 主要干预对象 & 主要优势 & 主要局限 & 黑盒适用性 \\
         \midrule
-        预处理 & 训练数据、输入分布、指令样本 & 实现简便，便于组合使用 & 间接干预为主，分布偏移风险高 & 中 \\
-        训练阶段 & 模型参数、目标函数、内部表示 & 控制力度强，机制干预深 & 训练成本高，闭源场景受限 & 低 \\
-        推理阶段 & 提示词、解码策略、外部控制模块 & 在线控制灵活，部署成本低 & 参数敏感，局部控制有限 & 高 \\
-        后处理与输出重写 & 最终生成文本 & 实例级校正直接，黑盒适配强 & 依赖定位精度，语义漂移风险存在 & 高 \\
+        预处理\cite{DBLP:journals/coling/GallegosRBTKDYZA24,DBLP:conf/birthday/LuMWAD20,DBLP:conf/emnlp/MaudslayGCT19,DBLP:conf/acl/GhanbarzadehHPM23,DBLP:conf/emnlp/DinanFWUKW20,DBLP:conf/nips/SolaimanD21} & 训练数据、输入分布、指令样本 & 实现简便，便于组合使用 & 间接干预为主，分布偏移风险高 & 中 \\
+        训练阶段\cite{DBLP:conf/acl/RavfogelEGTG20,DBLP:conf/acl/LiangLZLSM20,DBLP:conf/icassp/WooNJL23,DBLP:conf/acl/GuoYA22,DBLP:conf/emnlp/GaciBCB22,DBLP:conf/acl/ZhengK0H23,DBLP:conf/naacl/JinBKDNR21} & 模型参数、目标函数、内部表示 & 控制力度强，机制干预深 & 训练成本高，闭源场景受限 & 低 \\
+        推理阶段\cite{DBLP:conf/acl/SaundersSB22,DBLP:conf/emnlp/MeadeGHGJRLH23,DBLP:conf/acl/LiuKW23,DBLP:conf/acl/HauzenbergerMKS23} & 提示词、解码策略、外部控制模块 & 在线控制灵活，部署成本低 & 参数敏感，局部控制有限 & 高 \\
+        后处理与输出重写\cite{DBLP:conf/aaai/PryzantMDKJY20,DBLP:conf/acl/AmrheinSSL23,DBLP:conf/emnlp/MajumderHM23} & 最终生成文本 & 实例级校正直接，黑盒适配强 & 依赖定位精度，语义漂移风险存在 & 高 \\
         \bottomrule
     \end{tabularx}
 \end{table}
